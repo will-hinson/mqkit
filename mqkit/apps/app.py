@@ -48,6 +48,7 @@ class App:
         self: "App",
         name: str,
         codec: CodecType | str = CodecType.JSON,
+        forward_to: Optional[str] = None,
     ) -> Callable[[Callable], QueueEndpoint]:
         codec = CodecType(codec)
 
@@ -60,6 +61,7 @@ class App:
                     queue_name=name,
                     target=func,
                     codec_type=codec,
+                    forward_to=forward_to,
                 )
             )
             return self._endpoints[-1]  # type: ignore

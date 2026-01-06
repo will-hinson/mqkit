@@ -1,11 +1,13 @@
 import logging
 from logging import Logger
 from threading import Thread
+from typing import Any, Optional
 
 from ...endpoints import Endpoint
 from ...engines import Engine
+from ...errors import NoRetry
 from ..worker import Worker
-from ...marshal import QueueMessage
+from ...marshal import Forward, QueueMessage
 
 
 class ThreadWorker(Worker, Thread):
@@ -37,7 +39,26 @@ class ThreadWorker(Worker, Thread):
                 self._logger.debug(
                     f"Received message of size {len(message.data):,} bytes"
                 )
-                self._endpoint.handle_message(message)
 
-                # TODO: need to acknowledge the message
-                connection.acknowledge_success(message)
+                try:
+                    forward_result: Optional[Forward] = self._endpoint.handle_message(
+                        message
+                    )
+                    connection.acknowledge_success(message)
+
+                    if forward_result is not None:
+                        self._logger.debug(
+                            f"Forwarding result to {forward_result.forward_target}"
+                        )
+                        connection.forward_message(
+                            forward=forward_result,
+                        )
+                except NoRetry as nr:
+                    self._logger.warning(
+                        "Message processing failed with NoRetry"
+                        + ("" if nr.args == () else f": {nr.args[0]}")
+                    )
+                    connection.acknowledge_failure(message)
+                except Exception as exc:
+                    self._logger.exception(f"Error while processing message: {exc}")
+                    connection.acknowledge_failure(message)

@@ -1,7 +1,7 @@
 from abc import ABCMeta, abstractmethod
 from typing import Type
 
-from ..marshal import QueueMessage
+from ..marshal import Forward, QueueMessage
 
 
 class Connection(metaclass=ABCMeta):
@@ -67,6 +67,23 @@ class Connection(metaclass=ABCMeta):
             exc_type: The exception type.
             exc_value: The exception value.
             traceback: The traceback object.
+
+        Returns:
+            None
+
+        Raises:
+            NotImplementedError: If the method is not implemented.
+        """
+
+        raise NotImplementedError()
+
+    @abstractmethod
+    def forward_message(self: "Connection", forward: Forward) -> None:
+        """
+        Forward a message to another queue.
+
+        Args:
+            forward (Forward): The forward object containing the target and message.
 
         Returns:
             None

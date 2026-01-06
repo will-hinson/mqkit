@@ -21,3 +21,4 @@ from . import workers
 
 App = apps.App
 create_engine = engines.create_engine
+NoRetry = errors.NoRetry

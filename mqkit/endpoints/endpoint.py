@@ -1,27 +1,27 @@
 from abc import ABCMeta, abstractmethod
 import functools
 import inspect
-from typing import Any, Callable, Dict, NoReturn
+from typing import Any, Callable, Dict, NoReturn, Optional
 
-from ..marshal import QueueMessage, Serializer, TypelessSerializer
-from ..marshal.codecs import Codec, CodecType, JsonCodec
+from ..marshal import Forward, QueueMessage, Serializer, TypelessSerializer
+from ..marshal.codecs import Codec, CodecType, JsonCodec, YamlCodec
 
 
 class Endpoint(metaclass=ABCMeta):
     _queue_name: str
-    __target: Callable[..., Any]
+    _target: Callable[..., Any]
 
     def __init__(
         self: "Endpoint", queue_name: str, target: Callable, codec_type: CodecType
     ) -> None:
         self._queue_name = queue_name
-        self.__target = self._wrap_with_decode(
+        self._target = self._wrap_with_decode(
             target,
             codec_type=codec_type,
         )
 
     @abstractmethod
-    def handle_message(self: "Endpoint", message: QueueMessage) -> None:
+    def handle_message(self: "Endpoint", message: QueueMessage) -> Optional[Forward]:
         raise NotImplementedError()
 
     @property
@@ -31,7 +31,7 @@ class Endpoint(metaclass=ABCMeta):
 
     @property
     def target(self: "Endpoint") -> Callable[..., Any]:
-        return self.__target
+        return self._target
 
     def __call__(self, /) -> NoReturn:
         raise NotImplementedError(
@@ -41,6 +41,8 @@ class Endpoint(metaclass=ABCMeta):
     def _make_codec(self: "Endpoint", codec_type: CodecType) -> Codec:
         if codec_type == CodecType.JSON:
             return JsonCodec()
+        elif codec_type == CodecType.YAML:
+            return YamlCodec()
 
         raise NotImplementedError()
 

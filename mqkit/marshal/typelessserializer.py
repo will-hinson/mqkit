@@ -15,7 +15,7 @@ class TypelessSerializer(Serializer):
             return None
         if not isinstance(data, dict):
             raise SerializeError(
-                f"TypelessSerializer can only serialize dict types, got {type(data).__name__}"
+                f"TypelessSerializer can only serialize dict types but got {type(data).__name__}"
             )
 
         return self._codec.encode(data)

@@ -8,11 +8,12 @@ from pika import BlockingConnection as PikaBlockingConnection
 from pika.adapters.blocking_connection import BlockingChannel
 from pika.amqp_object import Method
 from pydantic import BaseModel, PrivateAttr
+from slugify import slugify
 
 from .amqpconsumethread import AmqpConsumeThread
 from .amqpmessage import AmqpMessage
 from ..connection import Connection
-from ...marshal import QueueMessage
+from ...marshal import Forward, QueueMessage
 
 
 class AmqpConnection(Connection, BaseModel):
@@ -57,6 +58,23 @@ class AmqpConnection(Connection, BaseModel):
             )
         )
 
+    def _declare_queue(
+        self: "AmqpConnection",
+        queue_name: str,
+        *,
+        durable: bool = True,
+    ) -> None:
+        if self._connection is None or self._channel is None:
+            raise RuntimeError("AMQP channel is not established")
+
+        self._connection.add_callback_threadsafe(
+            functools.partial(
+                self._channel.queue_declare,
+                queue=queue_name,
+                durable=durable,
+            )
+        )
+
     def _enqueue_message(
         self: "AmqpConnection",
         channel: BlockingChannel,
@@ -88,13 +106,28 @@ class AmqpConnection(Connection, BaseModel):
             )
         )
 
+        # declare the queue as durable and set prefetch count to 1
         self._channel = self._connection.channel()
-        self._channel.queue_declare(queue=self.queue, durable=True)
+        self._declare_queue(
+            queue_name=self.queue,
+            durable=True,
+        )
         self._channel.basic_qos(prefetch_count=1)
         self._channel.basic_consume(
             on_message_callback=self._enqueue_message,
             queue=self.queue,
             auto_ack=False,
+        )
+
+        # declare a default resubmit exchange for failed messages
+        self._channel.exchange_declare(
+            exchange=self.resubmit_exchange,
+            exchange_type="direct",
+            durable=True,
+        )
+        self._channel.queue_bind(
+            queue=self.queue,
+            exchange=self.resubmit_exchange,
         )
 
         self._consume_thread = AmqpConsumeThread(
@@ -117,6 +150,31 @@ class AmqpConnection(Connection, BaseModel):
 
     def _get_delivery_tag(self: "AmqpConnection", message: QueueMessage) -> int:
         return message.attributes["platform"]["method"]["delivery_tag"]
+
+    def forward_message(self: "AmqpConnection", forward: Forward) -> None:
+        if self._connection is None or self._channel is None:
+            raise RuntimeError("AMQP channel is not established")
+
+        if isinstance(forward.forward_target, str):
+            self._declare_queue(
+                queue_name=forward.forward_target,
+                durable=True,
+            )
+            self._connection.add_callback_threadsafe(
+                functools.partial(
+                    self._channel.basic_publish,
+                    exchange="",
+                    routing_key=forward.forward_target,
+                    body=forward.message.data,
+                    properties=BasicProperties(
+                        headers=forward.message.attributes,
+                        delivery_mode=2,  # make message persistent
+                    ),
+                )
+            )
+            return
+
+        raise NotImplementedError("Forwarding to non-str targets is not implemented")
 
     def get_message(self: "AmqpConnection") -> QueueMessage:
         message: AmqpMessage = self._message_queue.get()
@@ -148,3 +206,7 @@ class AmqpConnection(Connection, BaseModel):
                 }
             ),
         )
+
+    @property
+    def resubmit_exchange(self: "AmqpConnection") -> str:
+        return f"mqkit.resubmit.{slugify(self.queue, separator='_')}"
