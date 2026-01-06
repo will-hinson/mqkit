@@ -1,0 +1,95 @@
+from abc import ABCMeta, abstractmethod
+from typing import Type
+
+from ..marshal import QueueMessage
+
+
+class Connection(metaclass=ABCMeta):
+    @abstractmethod
+    def acknowledge_failure(self: "Connection", message: QueueMessage) -> None:
+        """
+        Acknowledge the failure of processing a message.
+
+        Args:
+            message (QueueMessage): The message to acknowledge.
+
+        Returns:
+            None
+
+        Raises:
+            NotImplementedError: If the method is not implemented.
+        """
+
+        raise NotImplementedError()
+
+    @abstractmethod
+    def acknowledge_success(self: "Connection", message: QueueMessage) -> None:
+        """
+        Acknowledge the processing of a message.
+
+        Args:
+            message (QueueMessage): The message to acknowledge.
+
+        Returns:
+            None
+
+        Raises:
+            NotImplementedError: If the method is not implemented.
+        """
+
+        raise NotImplementedError()
+
+    @abstractmethod
+    def __enter__(self: "Connection") -> "Connection":
+        """
+        Enter the runtime context related to this object.
+
+        Args:
+            None
+
+        Returns:
+            Connection: The connection object itself.
+
+        Raises:
+            NotImplementedError: If the method is not implemented.
+        """
+
+        raise NotImplementedError()
+
+    @abstractmethod
+    def __exit__(
+        self: "Connection", exc_type: Type[Exception], exc_value: Exception, traceback
+    ) -> None:
+        """
+        Exit the runtime context related to this object.
+
+        Args:
+            exc_type: The exception type.
+            exc_value: The exception value.
+            traceback: The traceback object.
+
+        Returns:
+            None
+
+        Raises:
+            NotImplementedError: If the method is not implemented.
+        """
+
+        raise NotImplementedError()
+
+    @abstractmethod
+    def get_message(self: "Connection") -> QueueMessage:
+        """
+        Block and wait for a message from the connected queue.
+
+        Args:
+            None
+
+        Returns:
+            bytes: The message received from the queue.
+
+        Raises:
+            NotImplementedError: If the method is not implemented.
+        """
+
+        raise NotImplementedError()
