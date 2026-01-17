@@ -1,5 +1,5 @@
 from abc import ABCMeta, abstractmethod
-from typing import Type
+from typing import Optional, Type
 
 from ..marshal import Forward, QueueMessage
 
@@ -104,6 +104,24 @@ class Connection(metaclass=ABCMeta):
 
         Returns:
             bytes: The message received from the queue.
+
+        Raises:
+            NotImplementedError: If the method is not implemented.
+        """
+
+        raise NotImplementedError()
+
+    @abstractmethod
+    def unblock(self: "Connection", message: Optional[str] = None) -> None:
+        """
+        Unblock the connection if it is blocked waiting for a message by
+        submitting a sentinel message.
+
+        Args:
+            None
+
+        Returns:
+            None
 
         Raises:
             NotImplementedError: If the method is not implemented.

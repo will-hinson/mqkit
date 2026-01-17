@@ -27,7 +27,13 @@ class ThreadCoordinator(Coordinator):
             ThreadWorker(endpoint=endpoint, engine=self._engine): endpoint
             for endpoint in self._endpoints
         }
-        for worker in workers:
-            worker.start()
-        for worker in workers:
-            worker.join()
+        try:
+            for worker in workers:
+                worker.start()
+            for worker in workers:
+                worker.join()
+        except KeyboardInterrupt as ki:
+            for worker in workers:
+                worker.stop(message=f"User interaction ({ki!r})")
+            for worker in workers:
+                worker.join()

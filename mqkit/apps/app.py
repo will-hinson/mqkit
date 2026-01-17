@@ -1,9 +1,10 @@
 import asyncio
-from typing import Callable, List, Optional
+from typing import Callable, Dict, List, Optional
 
 from .concurrencymode import ConcurrencyMode
 from ..endpoints import Endpoint, QueueEndpoint
 from ..engines import Engine
+from ..events import AppEventType
 from ..marshal.codecs import CodecType
 from ..workers import Coordinator
 from ..workers.threaded import ThreadCoordinator
@@ -13,6 +14,7 @@ class App:
     _concurrency_mode: ConcurrencyMode
     _coordinator: Optional[Coordinator] = None
     _endpoints: List[Endpoint] = []
+    _event_functions: Dict[AppEventType, Callable] = {}
 
     def __init__(
         self: "App",
@@ -38,11 +40,23 @@ class App:
     def concurrency_mode(self: "App") -> ConcurrencyMode:
         return self._concurrency_mode
 
+    def _handle_event(self: "App", event_type: AppEventType) -> None:
+        func: Optional[Callable] = self._event_functions.get(event_type)
+        if func is not None:
+            func()
+
     def _is_function_compatible(self: "App", func: Callable) -> bool:
         if self.concurrency_mode == ConcurrencyMode.ASYNC:
             return asyncio.iscoroutinefunction(func)
         else:
             return not asyncio.iscoroutinefunction(func)
+
+    def on_start(
+        self: "App",
+        func: Callable[[], None],
+    ) -> Callable[[], None]:
+        self._event_functions[AppEventType.START] = func
+        return func
 
     def queue(
         self: "App",
@@ -83,6 +97,7 @@ class App:
 
         # run the coordinator
         assert self._coordinator is not None
+        self._handle_event(AppEventType.START)
         self._coordinator.run()
 
     def _run_init_threaded(self: "App", engine: Engine) -> None:

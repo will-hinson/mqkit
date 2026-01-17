@@ -1,7 +1,8 @@
 import functools
 from queue import Queue
 import ssl
-from typing import Optional
+import threading
+from typing import Optional, Set, Type
 
 from pika import BasicProperties, ConnectionParameters, PlainCredentials, SSLOptions
 from pika import BlockingConnection as PikaBlockingConnection
@@ -12,7 +13,9 @@ from slugify import slugify
 
 from .amqpconsumethread import AmqpConsumeThread
 from .amqpmessage import AmqpMessage
+from .amqpsentinel import AmqpSentinel
 from ..connection import Connection
+from ...errors import ShutdownRequested
 from ...marshal import Forward, QueueMessage
 
 
@@ -27,6 +30,7 @@ class AmqpConnection(Connection, BaseModel):
     _channel: Optional[BlockingChannel] = PrivateAttr(default=None)
     _connection: Optional[PikaBlockingConnection] = PrivateAttr(default=None)
     _consume_thread: Optional[AmqpConsumeThread] = PrivateAttr(default=None)
+    _declared_queues: Set[str] = PrivateAttr(default_factory=set)
     _message_queue: Queue = PrivateAttr(default_factory=Queue)
 
     class Config:
@@ -63,17 +67,30 @@ class AmqpConnection(Connection, BaseModel):
         queue_name: str,
         *,
         durable: bool = True,
+        thread_local: bool = False,
     ) -> None:
         if self._connection is None or self._channel is None:
             raise RuntimeError("AMQP channel is not established")
 
-        self._connection.add_callback_threadsafe(
-            functools.partial(
-                self._channel.queue_declare,
+        if queue_name in self._declared_queues:
+            return
+
+        done_event: threading.Event = threading.Event()
+
+        def declare():
+            self._channel.queue_declare(
                 queue=queue_name,
                 durable=durable,
             )
-        )
+            done_event.set()
+
+        if not thread_local:
+            self._connection.add_callback_threadsafe(declare)
+            done_event.wait()
+        else:
+            declare()
+
+        self._declared_queues.add(queue_name)
 
     def _enqueue_message(
         self: "AmqpConnection",
@@ -111,6 +128,7 @@ class AmqpConnection(Connection, BaseModel):
         self._declare_queue(
             queue_name=self.queue,
             durable=True,
+            thread_local=True,
         )
         self._channel.basic_qos(prefetch_count=1)
         self._channel.basic_consume(
@@ -143,8 +161,6 @@ class AmqpConnection(Connection, BaseModel):
             self._consume_thread.stop()
             self._consume_thread.join()
 
-        if self._channel is not None:
-            self._channel.close()
         if self._connection is not None:
             self._connection.close()
 
@@ -177,7 +193,11 @@ class AmqpConnection(Connection, BaseModel):
         raise NotImplementedError("Forwarding to non-str targets is not implemented")
 
     def get_message(self: "AmqpConnection") -> QueueMessage:
-        message: AmqpMessage = self._message_queue.get()
+        message: AmqpMessage | AmqpSentinel = self._message_queue.get()
+
+        if isinstance(message, AmqpSentinel):
+            self._message_queue.shutdown()
+            raise ShutdownRequested(*message.args)
 
         return QueueMessage(
             data=message.body,
@@ -210,3 +230,9 @@ class AmqpConnection(Connection, BaseModel):
     @property
     def resubmit_exchange(self: "AmqpConnection") -> str:
         return f"mqkit.resubmit.{slugify(self.queue, separator='_')}"
+
+    def unblock(self: "AmqpConnection", message: Optional[str] = None) -> None:
+        if self._connection is None:
+            raise RuntimeError("AMQP connection is not established")
+
+        self._message_queue.put(AmqpSentinel(message))

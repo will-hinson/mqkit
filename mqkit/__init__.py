@@ -7,6 +7,7 @@ __all__ = [
     "endpoints",
     "engines",
     "errors",
+    "events",
     "marshal",
     "workers",
 ]
@@ -16,6 +17,7 @@ from . import credentials
 from . import endpoints
 from . import engines
 from . import errors
+from . import events
 from . import marshal
 from . import workers
 
