@@ -42,5 +42,5 @@ jobs:
         poetry install --all-extras
     - name: Inspect with mypy
       run: |
-        poetry run mypy --install-types --non-interactive
+        poetry run mypy --install-types --non-interactive ./mqkit
         poetry run mypy ./mqkit
