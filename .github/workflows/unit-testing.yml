@@ -2,8 +2,9 @@ name: Unit Testing
 
 on:
   push:
-    - main
-    - dev
+    branches:
+      - main
+      - dev
 
 jobs:
   pytest:
