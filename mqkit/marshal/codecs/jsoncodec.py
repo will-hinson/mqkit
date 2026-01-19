@@ -8,7 +8,7 @@ import json
 from typing import Any, Dict
 
 from .codec import Codec
-from ...errors import DecodeError
+from ...errors import DecodeError, EncodeError
 
 
 class JsonCodec(Codec):
@@ -36,4 +36,7 @@ class JsonCodec(Codec):
             raise DecodeError("Failed to decode JSON data") from exc
 
     def encode(self: "JsonCodec", data: object) -> bytes:
-        return json.dumps(data).encode(self._encoding)
+        try:
+            return json.dumps(data).encode(self._encoding)
+        except (TypeError, ValueError) as exc:
+            raise EncodeError("Failed to encode data to JSON") from exc

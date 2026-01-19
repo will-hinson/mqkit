@@ -1,4 +1,4 @@
-from mqkit.errors import DecodeError
+from mqkit.errors import DecodeError, EncodeError
 from mqkit.marshal.codecs import YamlCodec
 
 import pytest
@@ -24,3 +24,11 @@ def test_yaml_codec_encode(yaml_codec: YamlCodec) -> None:
 def test_yaml_codec_decode_invalid(yaml_codec: YamlCodec) -> None:
     with pytest.raises(DecodeError):
         yaml_codec.decode(b"invalid_yaml: [unclosed_list")
+
+
+def test_yaml_codec_encode_invalid(yaml_codec: YamlCodec) -> None:
+    class NonSerializable:
+        pass
+
+    with pytest.raises(EncodeError):
+        print(yaml_codec.encode({"a": NonSerializable()}))

@@ -1,4 +1,5 @@
-from mqkit.errors import DecodeError
+from datetime import date
+from mqkit.errors import DecodeError, EncodeError
 from mqkit.marshal.codecs import JsonCodec
 
 import pytest
@@ -24,3 +25,8 @@ def test_json_codec_encode(json_codec: JsonCodec) -> None:
 def test_json_codec_decode_invalid(json_codec: JsonCodec) -> None:
     with pytest.raises(DecodeError):
         json_codec.decode(b'{"key": value}')
+
+
+def test_json_codec_encode_invalid(json_codec: JsonCodec) -> None:
+    with pytest.raises(EncodeError):
+        json_codec.encode(date(2024, 1, 1))

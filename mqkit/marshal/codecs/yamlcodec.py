@@ -7,7 +7,7 @@ Defines the YamlCodec class for encoding and decoding YAML data in message queue
 import yaml
 
 from .codec import Codec
-from ...errors import DecodeError
+from ...errors import DecodeError, EncodeError
 
 
 class YamlCodec(Codec):
@@ -35,4 +35,7 @@ class YamlCodec(Codec):
             raise DecodeError("Failed to decode YAML data") from exc
 
     def encode(self: "YamlCodec", data: dict) -> bytes:
-        return yaml.safe_dump(data).encode(self._encoding)
+        try:
+            return yaml.safe_dump(data).encode(self._encoding)
+        except yaml.YAMLError as exc:
+            raise EncodeError("Failed to encode YAML data") from exc
