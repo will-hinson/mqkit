@@ -5,6 +5,7 @@ Defines various exception classes used in the MQKit library.
 """
 
 __all__ = [
+    "DecodeError",
     "MarshalError",
     "MqkitError",
     "NoRetry",
@@ -12,6 +13,7 @@ __all__ = [
     "ShutdownRequested",
 ]
 
+from .decodeerror import DecodeError
 from .marshalerror import MarshalError
 from .mqkiterror import MqkitError
 from .noretry import NoRetry

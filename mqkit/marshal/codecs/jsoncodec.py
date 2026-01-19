@@ -8,6 +8,7 @@ import json
 from typing import Any, Dict
 
 from .codec import Codec
+from ...errors import DecodeError
 
 
 class JsonCodec(Codec):
@@ -22,10 +23,17 @@ class JsonCodec(Codec):
     def __init__(self: "JsonCodec", encoding: str = "utf-8") -> None:
         self._encoding = encoding
 
+    @property
+    def content_type(self: "JsonCodec") -> str:
+        return "application/json"
+
     def decode(self: "JsonCodec", data: bytes) -> Dict[str, Any]:
-        return json.loads(
-            data.decode(self._encoding),
-        )
+        try:
+            return json.loads(
+                data.decode(self._encoding),
+            )
+        except json.JSONDecodeError as exc:
+            raise DecodeError("Failed to decode JSON data") from exc
 
     def encode(self: "JsonCodec", data: object) -> bytes:
         return json.dumps(data).encode(self._encoding)

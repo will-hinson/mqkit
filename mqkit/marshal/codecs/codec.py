@@ -15,6 +15,21 @@ class Codec(metaclass=ABCMeta):
     An abstract base class for codecs that encode and decode data.
     """
 
+    @property
+    @abstractmethod
+    def content_type(self: "Codec") -> str:
+        """
+        Get the content type of the codec.
+
+        Returns:
+            str: The content type.
+
+        Raises:
+            NotImplementedError: If the method is not implemented.
+        """
+
+        raise NotImplementedError()
+
     @abstractmethod
     def decode(self: "Codec", data: bytes) -> Dict[str, Any]:
         """
