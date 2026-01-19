@@ -9,10 +9,13 @@ from ...engines import Engine
 from ...errors import NoRetry, ShutdownRequested
 from ..worker import Worker
 from ...marshal import Forward, QueueMessage
+from .monotoniccounter import MonotonicCounter
 
 
 class ThreadWorker(Worker, Thread):
     connection: Connection
+
+    _counter: MonotonicCounter = MonotonicCounter()
 
     _endpoint: Endpoint
     _logger: Logger
@@ -23,7 +26,7 @@ class ThreadWorker(Worker, Thread):
         endpoint: Endpoint,
         engine: Engine,
     ) -> None:
-        Thread.__init__(self)
+        Thread.__init__(self, name=f"ThreadWorker-{self._counter.next()}")
         Worker.__init__(self)
 
         self._endpoint = endpoint
@@ -82,7 +85,7 @@ class ThreadWorker(Worker, Thread):
 
         except ShutdownRequested as sr:
             self._logger.warning(
-                "Shutdown requested during message processing"
+                f"Shutdown requested for {self.name} during message processing"
                 + ("" if sr.args == () else f": {sr.args[0]}")
             )
             self._stopped = True

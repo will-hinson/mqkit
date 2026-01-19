@@ -89,7 +89,7 @@ class App:
 
         # instantiate the appropriate coordinator based on the concurrency mode
         if self.concurrency_mode == ConcurrencyMode.THREAD:
-            self._run_init_threaded(engine)
+            self._init_threaded(engine)
         else:
             raise NotImplementedError(
                 f"Unimplemented concurrency mode '{self.concurrency_mode.value}'"
@@ -100,7 +100,7 @@ class App:
         self._handle_event(AppEventType.START)
         self._coordinator.run()
 
-    def _run_init_threaded(self: "App", engine: Engine) -> None:
+    def _init_threaded(self: "App", engine: Engine) -> None:
         assert self.concurrency_mode == ConcurrencyMode.THREAD
 
         if self._coordinator is not None:
