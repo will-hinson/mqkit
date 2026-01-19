@@ -26,7 +26,7 @@ class Coordinator(metaclass=ABCMeta):
 
     def __init__(
         self: "Coordinator", endpoints: List[Endpoint], engine: Engine
-    ) -> None:
+    ) -> None:  # pragma: no cover
         self._endpoints = endpoints
         self._engine = engine
 
@@ -36,4 +36,4 @@ class Coordinator(metaclass=ABCMeta):
         Abstract method to run the coordinator.
         """
 
-        raise NotImplementedError()
+        raise NotImplementedError()  # pragma: no cover

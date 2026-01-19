@@ -34,8 +34,8 @@ def create_engine(url: str) -> Engine:
 
     connect_url: URL = URL(url)
     if connect_url.scheme not in _scheme_mapping:
-        raise NotImplementedError(
-            f"Engine creation for URL '{url}' is not yet implemented"
+        raise ValueError(
+            f"Unknown URL scheme '{connect_url.scheme}' for engine creation"
         )
 
     return _scheme_mapping[connect_url.scheme].from_url(connect_url)
