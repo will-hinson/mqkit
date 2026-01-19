@@ -24,6 +24,7 @@ class App:
     for user code to define endpoints and event handlers.
     """
 
+    _codec_type: CodecType
     _concurrency_mode: ConcurrencyMode
     _coordinator: Optional[Coordinator] = None
     _endpoints: List[Endpoint] = []
@@ -32,9 +33,11 @@ class App:
     def __init__(
         self: "App",
         concurrency_mode: ConcurrencyMode | str = ConcurrencyMode.THREAD,
+        codec: CodecType | str = CodecType.JSON,
     ) -> None:
         self._concurrency_mode = ConcurrencyMode(concurrency_mode)
         self._endpoints = []
+        self._codec_type = CodecType(codec)
 
     def _assert_function_compatible(
         self: "App",
@@ -96,7 +99,7 @@ class App:
     def queue(
         self: "App",
         name: str,
-        codec: CodecType | str = CodecType.JSON,
+        codec: Optional[CodecType | str] = None,
         forward_to: Optional[str] = None,
     ) -> Callable[[Callable], QueueEndpoint]:
         """
@@ -116,7 +119,7 @@ class App:
             TypeError: If the function is not compatible with the selected concurrency mode.
         """
 
-        codec = CodecType(codec)
+        codec = CodecType(codec) if codec is not None else self._codec_type
 
         def _queue_decorator(func: Callable) -> QueueEndpoint:
             # check that the function is compatible with the selected concurrency mode

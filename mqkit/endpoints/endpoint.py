@@ -11,10 +11,11 @@ import inspect
 from typing import Any, Callable, Dict, NoReturn, Optional, Type
 
 from ..marshal import Forward, QueueMessage, Serializer, TypelessSerializer
-from ..marshal.codecs import Codec, CodecType, JsonCodec, YamlCodec
+from ..marshal.codecs import Codec, CodecType, JsonCodec, MessagePackCodec, YamlCodec
 
 _codec_type_to_class: Dict[CodecType, Type[Codec]] = {
     CodecType.JSON: JsonCodec,
+    CodecType.MESSAGEPACK: MessagePackCodec,
     CodecType.YAML: YamlCodec,
 }
 
