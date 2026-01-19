@@ -22,7 +22,7 @@ jobs:
         poetry install --all-extras
     - name: Lint with pylint
       run: |
-        poetry run pylint $(git ls-files '*.py')
+        poetry run pylint ./mqkit
 
   ruff:
     runs-on: ubuntu-latest
