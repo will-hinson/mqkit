@@ -1,0 +1,25 @@
+name: Code Quality
+
+on: [push]
+
+jobs:
+  pylint:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.13", "3.14"]
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v3
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Set up poetry 
+      run: |
+        python -m pip install poetry
+    - name: Install with dependencies
+      run: |
+        poetry install --all-extras
+    - name: Lint with pylint
+      run: |
+        pylint $(git ls-files '*.py')
