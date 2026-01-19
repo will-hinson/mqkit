@@ -92,8 +92,8 @@ class AmqpConnection(Connection, BaseModel):
 
         done_event: threading.Event = threading.Event()
 
-        def declare():
-            self._channel.queue_declare(
+        def declare() -> None:
+            self._channel.queue_declare(  # pyright: ignore[reportOptionalMemberAccess]
                 queue=queue_name,
                 durable=durable,
             )
