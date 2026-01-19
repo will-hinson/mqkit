@@ -93,6 +93,9 @@ class AmqpConnection(Connection, BaseModel):
         done_event: threading.Event = threading.Event()
 
         def declare() -> None:
+            if self._channel is None:  # pragma: no cover
+                raise RuntimeError("AMQP channel is not established")
+
             self._channel.queue_declare(  # pyright: ignore[reportOptionalMemberAccess]
                 queue=queue_name,
                 durable=durable,

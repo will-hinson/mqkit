@@ -7,7 +7,7 @@ the MessagePack format.
 
 from typing import Any, Dict
 
-import msgpack
+import msgpack  # type: ignore
 
 from .codec import Codec
 from ...errors import DecodeError, EncodeError
