@@ -5,6 +5,7 @@ Defines the AmqpMessage data model representing an AMQP message with its associa
 channel, method, properties, and body.
 """
 
+from typing import ClassVar
 from pika import BasicProperties
 from pika.adapters.blocking_connection import BlockingChannel
 from pika.amqp_object import Method
@@ -23,4 +24,4 @@ class AmqpMessage(BaseModel):
     properties: BasicProperties
     body: bytes
 
-    model_config: ConfigDict = ConfigDict(arbitrary_types_allowed=True)
+    model_config: ClassVar[ConfigDict] = ConfigDict(arbitrary_types_allowed=True)

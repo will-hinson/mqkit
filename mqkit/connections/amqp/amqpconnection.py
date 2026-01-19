@@ -10,7 +10,7 @@ import functools
 from queue import Queue
 import ssl
 import threading
-from typing import Optional, Set
+from typing import ClassVar, Optional, Set
 
 from pika import BasicProperties, ConnectionParameters, PlainCredentials, SSLOptions
 from pika import BlockingConnection as PikaBlockingConnection
@@ -49,7 +49,7 @@ class AmqpConnection(Connection, BaseModel):
     _declared_queues: Set[str] = PrivateAttr(default_factory=set)
     _message_queue: Queue = PrivateAttr(default_factory=Queue)
 
-    model_config: ConfigDict = ConfigDict(arbitrary_types_allowed=True)
+    model_config: ClassVar[ConfigDict] = ConfigDict(arbitrary_types_allowed=True)
 
     def acknowledge_failure(
         self: "AmqpConnection",
