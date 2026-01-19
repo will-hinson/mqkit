@@ -1,3 +1,9 @@
+"""
+module mqkit.workers.threaded
+
+A module providing threaded worker implementations for message queue processing.
+"""
+
 __all__ = [
     "ThreadCoordinator",
     "ThreadWorker",

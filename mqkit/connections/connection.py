@@ -1,3 +1,9 @@
+"""
+module mqkit.connections.connection
+
+Defines the abstract base class Connection for message queue connections.
+"""
+
 from abc import ABCMeta, abstractmethod
 from typing import Optional, Type
 
@@ -5,6 +11,12 @@ from ..marshal import Forward, QueueMessage
 
 
 class Connection(metaclass=ABCMeta):
+    """
+    class Connection
+
+    Abstract base class for message queue connections.
+    """
+
     @abstractmethod
     def acknowledge_failure(self: "Connection", message: QueueMessage) -> None:
         """

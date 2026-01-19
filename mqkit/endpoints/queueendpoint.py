@@ -1,3 +1,9 @@
+"""
+module mqkit.endpoints.queueendpoint
+
+Defines the QueueEndpoint class for processing messages from a message queue.
+"""
+
 from typing import Callable, Optional
 
 from .endpoint import Endpoint
@@ -6,6 +12,12 @@ from ..marshal.codecs import CodecType
 
 
 class QueueEndpoint(Endpoint):
+    """
+    class QueueEndpoint
+
+    Represents an endpoint for processing messages from a message queue.
+    """
+
     _forward_to: Optional[str] = None
 
     def __init__(
@@ -37,21 +49,34 @@ class QueueEndpoint(Endpoint):
                     },
                 ),
             )
-        else:
-            raise NotImplementedError(
-                "Forwarding to non-str targets is not implemented"
-            )
+
+        raise NotImplementedError("Forwarding to non-str targets is not implemented")
 
     def handle_message(
         self: "QueueEndpoint", message: QueueMessage
     ) -> Optional[Forward]:
+        """
+        Handle an incoming message by invoking the target function.
+
+        Args:
+            message (QueueMessage): The incoming message to handle.
+
+        Returns:
+            Optional[Forward]: A Forward object if the result should be forwarded,
+                otherwise None.
+
+        Raises:
+            ValueError: If the target function returns a result but no forward_to
+                queue was specified.
+        """
+
         result: Optional[bytes] = self.target(
             message=message.data,
             attributes=message.attributes,
         )
 
         if result is None:
-            return
+            return None
 
         # check if the message can actually be replied to
         if self._forward_to is None:

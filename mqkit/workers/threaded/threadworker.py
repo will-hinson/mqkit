@@ -1,3 +1,9 @@
+"""
+module mqkit.workers.threaded.threadworker
+
+A module defining a threaded worker for processing messages from a message queue.
+"""
+
 import logging
 from logging import Logger
 from threading import Thread
@@ -13,6 +19,12 @@ from .monotoniccounter import MonotonicCounter
 
 
 class ThreadWorker(Worker, Thread):
+    """
+    class ThreadWorker
+
+    A worker that processes messages from a message queue using threading.
+    """
+
     connection: Connection
 
     _counter: MonotonicCounter = MonotonicCounter()
@@ -34,6 +46,7 @@ class ThreadWorker(Worker, Thread):
         self._init_logger()
 
     def _handle_message(self: "ThreadWorker", message: QueueMessage) -> None:
+        # pylint: disable=broad-except
         try:
             # process the message using the endpoint's handler. the handler may
             # return a Forward object to indicate that a result should be
@@ -44,24 +57,24 @@ class ThreadWorker(Worker, Thread):
             # forward the result as needed
             if forward_result is not None:
                 self._logger.debug(
-                    f"Forwarding result to {forward_result.forward_target}"
+                    "Forwarding result to %s", forward_result.forward_target
                 )
                 self.connection.forward_message(
                     forward=forward_result,
                 )
         except NoRetry as nr:
             self._logger.warning(
-                "Message processing failed with NoRetry"
-                + ("" if nr.args == () else f": {nr.args[0]}")
+                "Message processing failed with NoRetry%s",
+                "" if len(nr.args) == 0 else f": {nr.args[0]}",
             )
             self.connection.acknowledge_failure(message)
         except Exception as exc:
-            self._logger.exception(f"Error while processing message: {exc}")
+            self._logger.exception("Error while processing message: %s", exc)
             self.connection.acknowledge_failure(message)
 
     def _init_logger(self: "ThreadWorker") -> None:
         self._logger = logging.getLogger(
-            name=f"{self.__class__.__module__.split('.')[0]}.{self.__class__.__name__}."
+            name=f"{self.__class__.__module__.split('.', maxsplit=1)[0]}.{self.__class__.__name__}."
             f"{self._endpoint.__class__.__name__}.{self._endpoint.qualname}"
         )
 
@@ -73,24 +86,42 @@ class ThreadWorker(Worker, Thread):
         # try getting a message from the queue. this will either block
         # until it succeeds, or raise ShutdownRequested if stop() is called
         message: QueueMessage = self.connection.get_message()
-        self._logger.debug(f"Received message of size {len(message.data):,} bytes")
+        self._logger.debug(
+            "Received message of size %s byte%s",
+            f"{len(message.data):,}",
+            "" if len(message.data) == 1 else "s",
+        )
         return message
 
     def run(self: "ThreadWorker") -> None:
         try:
             with self._engine.connect(
-                queue=self._endpoint._queue_name
+                queue=self._endpoint.queue_name
             ) as self.connection:
                 self._process_messages()
 
         except ShutdownRequested as sr:
             self._logger.warning(
-                f"Shutdown requested for {self.name} during message processing"
-                + ("" if sr.args == () else f": {sr.args[0]}")
+                "Shutdown requested for %s during message processing%s",
+                self.name,
+                "" if len(sr.args) == 0 else f": {sr.args[0]}",
             )
             self._stopped = True
 
     def stop(self: "ThreadWorker", message: Optional[str] = None) -> None:
+        """
+        Stops the worker by unblocking the connection.
+
+        Args:
+            message (Optional[str]): An optional message to send when unblocking.
+
+        Returns:
+            None
+
+        Raises:
+            Nothing
+        """
+
         self._stopped = True
 
         # the while loop in run() may be blocked waiting for a message,

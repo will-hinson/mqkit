@@ -1,9 +1,21 @@
+"""
+module mqkit.marshal.codecs.yamlcodec
+
+Defines the YamlCodec class for encoding and decoding YAML data in message queues.
+"""
+
 import yaml
 
 from .codec import Codec
 
 
 class YamlCodec(Codec):
+    """
+    class YamlCodec
+
+    A codec for encoding and decoding YAML data.
+    """
+
     _encoding: str
 
     def __init__(self: "YamlCodec", encoding: str = "utf-8") -> None:

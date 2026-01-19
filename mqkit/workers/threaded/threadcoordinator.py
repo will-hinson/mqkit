@@ -1,3 +1,10 @@
+"""
+module mqkit.workers.threaded.threadcoordinator
+
+Defines the ThreadCoordinator class for managing threaded workers
+to process messages from multiple endpoints concurrently.
+"""
+
 import asyncio
 from logging import Logger
 import logging
@@ -10,6 +17,15 @@ from .threadworker import ThreadWorker
 
 
 class ThreadCoordinator(Coordinator):
+    """
+    class ThreadCoordinator
+
+    A coordinator that manages workers for processing messages from
+    multiple endpoints concurrently using threading.
+    """
+
+    # pylint: disable=too-few-public-methods
+
     _logger: Logger
 
     def __init__(
@@ -45,14 +61,29 @@ class ThreadCoordinator(Coordinator):
         self._logger.warning("All workers stopped")
 
     def run(self: "ThreadCoordinator") -> None:
+        """
+        Run the ThreadCoordinator by starting and managing ThreadWorkers for each
+        endpoint. Handles graceful shutdown on user interruption via KeyboardInterrupt.
+
+        Args:
+            None
+
+        Returns:
+            None
+
+        Raises:
+            Nothing
+        """
+
         workers: Dict[ThreadWorker, Endpoint] = {
             ThreadWorker(endpoint=endpoint, engine=self._engine): endpoint
             for endpoint in self._endpoints
         }
         try:
             self._logger.debug(
-                f"Starting ThreadCoordinator with {len(workers)} "
-                f"worker{'s' if len(workers) != 1 else ''}"
+                "Starting ThreadCoordinator with %d worker%s",
+                len(workers),
+                "s" if len(workers) != 1 else "",
             )
             for worker in workers:
                 worker.start()

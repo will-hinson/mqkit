@@ -1,3 +1,9 @@
+"""
+module mqkit.apps.app
+
+Contains the definition of the App class for building message queue applications.
+"""
+
 import asyncio
 from typing import Callable, Dict, List, Optional
 
@@ -11,6 +17,13 @@ from ..workers.threaded import ThreadCoordinator
 
 
 class App:
+    """
+    class App
+
+    Represents a message queue application. Implements a FastAPI-style interface
+    for user code to define endpoints and event handlers.
+    """
+
     _concurrency_mode: ConcurrencyMode
     _coordinator: Optional[Coordinator] = None
     _endpoints: List[Endpoint] = []
@@ -38,6 +51,13 @@ class App:
 
     @property
     def concurrency_mode(self: "App") -> ConcurrencyMode:
+        """
+        Property that returns the concurrency mode of the application.
+
+        Returns:
+            ConcurrencyMode: The concurrency mode of the application.
+        """
+
         return self._concurrency_mode
 
     def _handle_event(self: "App", event_type: AppEventType) -> None:
@@ -48,13 +68,28 @@ class App:
     def _is_function_compatible(self: "App", func: Callable) -> bool:
         if self.concurrency_mode == ConcurrencyMode.ASYNC:
             return asyncio.iscoroutinefunction(func)
-        else:
-            return not asyncio.iscoroutinefunction(func)
+
+        return not asyncio.iscoroutinefunction(func)
 
     def on_start(
         self: "App",
         func: Callable[[], None],
     ) -> Callable[[], None]:
+        """
+        Registers a callback function to be called when the application starts.
+
+        Args:
+            func (Callable[[], None]): The callback function to register.
+
+        Returns:
+            Callable[[], None]: The registered callback function.
+
+        Raises:
+            TypeError: If the function is not compatible with the selected concurrency mode.
+        """
+
+        self._assert_function_compatible(func)
+
         self._event_functions[AppEventType.START] = func
         return func
 
@@ -64,6 +99,23 @@ class App:
         codec: CodecType | str = CodecType.JSON,
         forward_to: Optional[str] = None,
     ) -> Callable[[Callable], QueueEndpoint]:
+        """
+        Decorator to register a function as a queue endpoint.
+
+        Args:
+            name (str): The name of the queue.
+            codec (CodecType | str): The codec type for message serialization.
+                Defaults to CodecType.JSON.
+            forward_to (Optional[str]): The name of the queue to forward results to.
+                Defaults to None.
+
+        Returns:
+            Callable[[Callable], QueueEndpoint]: The decorator function.
+
+        Raises:
+            TypeError: If the function is not compatible with the selected concurrency mode.
+        """
+
         codec = CodecType(codec)
 
         def _queue_decorator(func: Callable) -> QueueEndpoint:
@@ -83,6 +135,20 @@ class App:
         return _queue_decorator
 
     def run(self: "App", engine: Engine) -> None:
+        """
+        Runs the application using the specified message queue connection engine.
+
+        Args:
+            engine (Engine): The message queue connection engine to use.
+
+        Returns:
+            None
+
+        Raises:
+            RuntimeError: If the application is already running.
+            NotImplementedError: If the selected concurrency mode is not implemented.
+        """
+
         # ensure the app is not already running
         if self._coordinator is not None:
             raise RuntimeError("App is already running")

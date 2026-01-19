@@ -1,3 +1,9 @@
+"""
+module mqkit
+
+A message queue toolkit for building and managing message queue applications.
+"""
+
 __all__ = [
     "App",
     "create_engine",

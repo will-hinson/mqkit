@@ -1,3 +1,9 @@
+"""
+module mqkit.errors
+
+Defines various exception classes used in the MQKit library.
+"""
+
 __all__ = [
     "MarshalError",
     "MqkitError",
