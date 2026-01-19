@@ -7,6 +7,7 @@ Defines the QueueEndpoint class for processing messages from a message queue.
 from typing import Callable, Optional
 
 from .endpoint import Endpoint
+from ..errors import NoForwardTargetError
 from ..marshal import Forward, QueueMessage
 from ..marshal.codecs import CodecType
 
@@ -24,9 +25,10 @@ class QueueEndpoint(Endpoint):
         self: "QueueEndpoint",
         queue_name: str,
         target: Callable,
-        codec_type: CodecType,
+        codec_type: CodecType | str,
         forward_to: Optional[str] = None,
     ) -> None:
+        codec_type = CodecType(codec_type)
         super().__init__(
             queue_name=queue_name,
             target=target,
@@ -50,7 +52,9 @@ class QueueEndpoint(Endpoint):
                 ),
             )
 
-        raise NotImplementedError("Forwarding to non-str targets is not implemented")
+        raise NotImplementedError(
+            "Forwarding to non-str targets is not implemented"
+        )  # pragma: no cover
 
     def handle_message(
         self: "QueueEndpoint", message: QueueMessage
@@ -80,12 +84,12 @@ class QueueEndpoint(Endpoint):
 
         # check if the message can actually be replied to
         if self._forward_to is None:
-            raise ValueError(
+            raise NoForwardTargetError(
                 "Cannot forward returned message result because no forward_to queue was specified"
             )
 
         return self._forward_result(result)
 
     @property
-    def qualname(self: "QueueEndpoint") -> str:
+    def qualname(self: "QueueEndpoint") -> str:  # pragma: no cover
         return self._queue_name

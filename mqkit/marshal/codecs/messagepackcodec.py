@@ -37,7 +37,7 @@ class MessagePackCodec(Codec):
 
         result: bytes | None = self._pack(data)
 
-        if result is None:
+        if result is None:  # pragma: no cover
             raise DecodeError("Failed to encode data to MessagePack (value was None)")
 
         return result

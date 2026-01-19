@@ -37,3 +37,10 @@ def test_messagepack_codec_encode_invalid(codec: MessagePackCodec) -> None:
     invalid_data: Any = set([1, 2, 3])  # Sets are not serializable in MessagePack
     with pytest.raises(EncodeError):
         codec.encode(invalid_data)
+
+
+def test_messagepack_codec_decode_non_dict(codec: MessagePackCodec) -> None:
+    data: bytes = b"\x92\x01\x02"  # MessagePack array [1, 2]
+
+    with pytest.raises(DecodeError):
+        codec.decode(data)

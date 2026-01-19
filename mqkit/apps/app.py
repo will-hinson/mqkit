@@ -10,6 +10,7 @@ from typing import Callable, Dict, List, Optional
 from .concurrencymode import ConcurrencyMode
 from ..endpoints import Endpoint, QueueEndpoint
 from ..engines import Engine
+from ..errors import FunctionTypeError
 from ..events import AppEventType
 from ..marshal.codecs import CodecType
 from ..workers import Coordinator
@@ -44,7 +45,7 @@ class App:
         func: Callable,
     ) -> None:
         if not self._is_function_compatible(func):
-            raise TypeError(
+            raise FunctionTypeError(
                 ("Async function" if asyncio.iscoroutinefunction(func) else "Function")
                 + (
                     f" {func.__name__}() is not compatible with concurrency mode "
@@ -69,10 +70,57 @@ class App:
             func()
 
     def _is_function_compatible(self: "App", func: Callable) -> bool:
-        if self.concurrency_mode == ConcurrencyMode.ASYNC:
+        if self.concurrency_mode == ConcurrencyMode.ASYNC:  # pragma: no cover
             return asyncio.iscoroutinefunction(func)
 
         return not asyncio.iscoroutinefunction(func)
+
+    def on_event(
+        self: "App",
+        event_type: AppEventType,
+    ) -> Callable[[Callable], Callable]:
+        """
+        Registers a callback function to be called for a specific application event.
+
+        Args:
+            event_type (AppEventType): The type of event to register the callback for.
+            func (Callable[[], None]): The callback function to register.
+
+        Returns:
+            Callable[[], None]: The registered callback function.
+
+        Raises:
+            FunctionTypeError: If the function is not compatible with the selected concurrency mode.
+        """
+
+        def _on_event_decorator(
+            func: Callable[[], None],
+        ) -> Callable[[], None]:
+            self._assert_function_compatible(func)
+
+            self._event_functions[event_type] = func
+            return func
+
+        return _on_event_decorator
+
+    def on_shutdown(
+        self: "App",
+        func: Callable[[], None],
+    ) -> Callable[[], None]:
+        """
+        Registers a callback function to be called when the application shuts down.
+
+        Args:
+            func (Callable[[], None]): The callback function to register.
+
+        Returns:
+            Callable[[], None]: The registered callback function.
+
+        Raises:
+            FunctionTypeError: If the function is not compatible with the selected concurrency mode.
+        """
+
+        return self.on_event(AppEventType.SHUTDOWN)(func)
 
     def on_start(
         self: "App",
@@ -88,13 +136,10 @@ class App:
             Callable[[], None]: The registered callback function.
 
         Raises:
-            TypeError: If the function is not compatible with the selected concurrency mode.
+            FunctionTypeError: If the function is not compatible with the selected concurrency mode.
         """
 
-        self._assert_function_compatible(func)
-
-        self._event_functions[AppEventType.START] = func
-        return func
+        return self.on_event(AppEventType.START)(func)
 
     def queue(
         self: "App",
@@ -159,7 +204,7 @@ class App:
         # instantiate the appropriate coordinator based on the concurrency mode
         if self.concurrency_mode == ConcurrencyMode.THREAD:
             self._init_threaded(engine)
-        else:
+        else:  # pragma: no cover
             raise NotImplementedError(
                 f"Unimplemented concurrency mode '{self.concurrency_mode.value}'"
             )
@@ -169,13 +214,35 @@ class App:
         self._handle_event(AppEventType.START)
         self._coordinator.run()
 
+        # when the coordinator is stopped by an interrupt, trigger the shutdown event
+        self._handle_event(AppEventType.SHUTDOWN)
+
     def _init_threaded(self: "App", engine: Engine) -> None:
         assert self.concurrency_mode == ConcurrencyMode.THREAD
 
-        if self._coordinator is not None:
+        if self._coordinator is not None:  # pragma: no cover
             raise RuntimeError("App is already running")
 
         self._coordinator = ThreadCoordinator(
             endpoints=self._endpoints,
             engine=engine,
         )
+
+    def stop(self: "App") -> None:
+        """
+        Stops the application by stopping the coordinator.
+
+        Args:
+            None
+
+        Returns:
+            None
+
+        Raises:
+            RuntimeError: If the application is not running.
+        """
+
+        if self._coordinator is None:
+            raise RuntimeError("App is not running")
+
+        self._coordinator.stop()

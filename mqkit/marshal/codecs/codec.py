@@ -17,7 +17,7 @@ class Codec(metaclass=ABCMeta):
 
     @property
     @abstractmethod
-    def content_type(self: "Codec") -> str:
+    def content_type(self: "Codec") -> str:  # pragma: no cover
         """
         Get the content type of the codec.
 

@@ -19,4 +19,5 @@ class AppEventType(str, Enum):
     that can trigger callbacks.
     """
 
+    SHUTDOWN = "shutdown"
     START = "start"

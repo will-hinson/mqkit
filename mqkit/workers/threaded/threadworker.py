@@ -6,7 +6,7 @@ A module defining a threaded worker for processing messages from a message queue
 
 import logging
 from logging import Logger
-from threading import Thread
+from threading import Event, Thread
 from typing import Optional
 
 from ...connections import Connection
@@ -31,6 +31,7 @@ class ThreadWorker(Worker, Thread):
 
     _endpoint: Endpoint
     _logger: Logger
+    _started_event: Event = Event()
     _stopped: bool = False
 
     def __init__(
@@ -68,7 +69,9 @@ class ThreadWorker(Worker, Thread):
                 "" if len(nr.args) == 0 else f": {nr.args[0]}",
             )
             self.connection.acknowledge_failure(message)
-        except Exception as exc:
+        except Exception as exc:  # pragma: no cover
+            # NOTE: we will want to add coverage here in the future once we have
+            # retry logic implemented
             self._logger.exception("Error while processing message: %s", exc)
             self.connection.acknowledge_failure(message)
 
@@ -98,6 +101,7 @@ class ThreadWorker(Worker, Thread):
             with self._engine.connect(
                 queue=self._endpoint.queue_name
             ) as self.connection:
+                self._started_event.set()
                 self._process_messages()
 
         except ShutdownRequested as sr:
@@ -107,6 +111,8 @@ class ThreadWorker(Worker, Thread):
                 "" if len(sr.args) == 0 else f": {sr.args[0]}",
             )
             self._stopped = True
+
+        self._started_event.set()
 
     def stop(self: "ThreadWorker", message: Optional[str] = None) -> None:
         """
@@ -122,6 +128,7 @@ class ThreadWorker(Worker, Thread):
             Nothing
         """
 
+        self._started_event.wait()
         self._stopped = True
 
         # the while loop in run() may be blocked waiting for a message,

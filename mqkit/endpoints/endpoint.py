@@ -5,11 +5,13 @@ Abstract base class for message queue endpoints.
 """
 
 from abc import ABCMeta, abstractmethod
+import asyncio
 from copy import copy
 import functools
 import inspect
 from typing import Any, Callable, Dict, NoReturn, Optional, Type
 
+from ..errors import EndpointSignatureError
 from ..marshal import Forward, QueueMessage, Serializer, TypelessSerializer
 from ..marshal.codecs import Codec, CodecType, JsonCodec, MessagePackCodec, YamlCodec
 
@@ -27,12 +29,14 @@ class Endpoint(metaclass=ABCMeta):
     Abstract base class for message queue endpoints.
     """
 
+    _is_async: bool = False
     _queue_name: str
     _target: Callable[..., Any]
 
     def __init__(
         self: "Endpoint", queue_name: str, target: Callable, codec_type: CodecType
     ) -> None:
+        self._is_async = asyncio.iscoroutinefunction(target)
         self._queue_name = queue_name
         self._target = self._wrap_with_decode(
             target,
@@ -58,8 +62,19 @@ class Endpoint(metaclass=ABCMeta):
         raise NotImplementedError()
 
     @property
+    def is_async(self: "Endpoint") -> bool:
+        """
+        Property that indicates whether the endpoint's target function is asynchronous.
+
+        Returns:
+            bool: True if the target function is asynchronous, False otherwise.
+        """
+
+        return self._is_async
+
+    @property
     @abstractmethod
-    def qualname(self: "Endpoint") -> str:
+    def qualname(self: "Endpoint") -> str:  # pragma: no cover
         """
         Returns the qualified name of the endpoint.
 
@@ -92,12 +107,12 @@ class Endpoint(metaclass=ABCMeta):
         return self._target
 
     def __call__(self, /) -> NoReturn:
-        raise ValueError(
+        raise TypeError(
             f"{self.target.__name__}() should not be called directly. Use App.run() instead"
         )
 
     def _make_codec(self: "Endpoint", codec_type: CodecType) -> Codec:
-        if codec_type not in _codec_type_to_class:
+        if codec_type not in _codec_type_to_class:  # pragma: no cover
             raise NotImplementedError(f"Unsupported codec type: {codec_type}")
 
         return _codec_type_to_class[codec_type]()
@@ -109,7 +124,7 @@ class Endpoint(metaclass=ABCMeta):
 
         signature: inspect.Signature = inspect.signature(func)
         if len(signature.parameters) != 2:
-            raise ValueError(
+            raise EndpointSignatureError(
                 f"Function {func.__name__}() must accept exactly two parameters"
             )
 
@@ -117,10 +132,10 @@ class Endpoint(metaclass=ABCMeta):
         if func.__annotations__ == {}:
             return TypelessSerializer(codec=codec)
 
-        raise ValueError(
+        raise EndpointSignatureError(
             "Unable to infer serializer type from function annotations for function "
             f"{func.__name__}()"
-        )
+        )  # pragma: no cover
 
     def _wrap_with_decode(
         self: "Endpoint", func: Callable, codec_type: CodecType

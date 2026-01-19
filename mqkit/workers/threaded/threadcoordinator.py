@@ -5,7 +5,6 @@ Defines the ThreadCoordinator class for managing threaded workers
 to process messages from multiple endpoints concurrently.
 """
 
-import asyncio
 from logging import Logger
 import logging
 from typing import Dict, List, Union
@@ -13,6 +12,8 @@ from typing import Dict, List, Union
 from ..coordinator import Coordinator
 from ...endpoints import Endpoint
 from ...engines import Engine
+from ...errors import FunctionTypeError, ShutdownRequested
+from .monotoniccounter import MonotonicCounter
 from .threadworker import ThreadWorker
 
 
@@ -26,7 +27,10 @@ class ThreadCoordinator(Coordinator):
 
     # pylint: disable=too-few-public-methods
 
+    _counter: MonotonicCounter = MonotonicCounter()
     _logger: Logger
+    _workers: Dict[ThreadWorker, Endpoint]
+    _serial_number: int
 
     def __init__(
         self: "ThreadCoordinator", endpoints: List[Endpoint], engine: Engine
@@ -35,27 +39,48 @@ class ThreadCoordinator(Coordinator):
 
         # assert that all endpoints are compatible with threaded concurrency
         self._assert_endpoints_compatible()
+        self._serial_number = self._counter.next()
         self._logger = logging.getLogger(
-            f"{self.__class__.__module__}.{self.__class__.__name__}"
+            f"{self.__class__.__module__}.{self.__class__.__name__}-{self._serial_number}"
         )
 
     def _assert_endpoints_compatible(self: "ThreadCoordinator") -> None:
-        assert all(
-            not asyncio.iscoroutinefunction(endpoint.target)
-            for endpoint in self._endpoints
-        ), "All endpoints must be compatible with threaded concurrency"
+        if any(endpoint.is_async for endpoint in self._endpoints):
+            raise FunctionTypeError(
+                "All endpoints must be compatible with threaded concurrency (async not allowed)"
+            )
+
+    def _interrupt(
+        self: "ThreadCoordinator",
+        exception: Union[Exception, KeyboardInterrupt],
+    ) -> None:
+        self._stop_workers(
+            exception=exception,
+            reason="User interaction",
+        )
+
+    def _start_workers(self: "ThreadCoordinator") -> None:
+        self._logger.debug(
+            "Starting ThreadCoordinator with %d worker%s",
+            len(self._workers),
+            "s" if len(self._workers) != 1 else "",
+        )
+        for worker in self._workers:
+            worker.start()
+        self._logger.debug("All workers started")
+        for worker in self._workers:
+            worker.join()
 
     def _stop_workers(
         self: "ThreadCoordinator",
-        workers: Dict[ThreadWorker, Endpoint],
         exception: Union[Exception, KeyboardInterrupt],
         reason: str,
     ) -> None:
         self._logger.warning("KeyboardInterrupt received, stopping workers")
 
-        for worker in workers:
+        for worker in self._workers:
             worker.stop(message=f"{reason} ({exception!r})")
-        for worker in workers:
+        for worker in self._workers:
             worker.join()
 
         self._logger.warning("All workers stopped")
@@ -75,24 +100,21 @@ class ThreadCoordinator(Coordinator):
             Nothing
         """
 
-        workers: Dict[ThreadWorker, Endpoint] = {
+        self._workers = {
             ThreadWorker(endpoint=endpoint, engine=self._engine): endpoint
             for endpoint in self._endpoints
         }
+
         try:
-            self._logger.debug(
-                "Starting ThreadCoordinator with %d worker%s",
-                len(workers),
-                "s" if len(workers) != 1 else "",
+            self._start_workers()
+        except KeyboardInterrupt as ki:  # pragma: no cover
+            self._interrupt(ki)
+
+    def stop(
+        self: "ThreadCoordinator",
+    ) -> None:
+        self._interrupt(
+            ShutdownRequested(
+                "Shutdown requested by application",
             )
-            for worker in workers:
-                worker.start()
-            self._logger.debug("All workers started")
-            for worker in workers:
-                worker.join()
-        except KeyboardInterrupt as ki:
-            self._stop_workers(
-                workers=workers,
-                exception=ki,
-                reason="User interaction",
-            )
+        )

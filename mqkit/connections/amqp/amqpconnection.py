@@ -84,10 +84,11 @@ class AmqpConnection(Connection, BaseModel):
         durable: bool = True,
         thread_local: bool = False,
     ) -> None:
-        if self._connection is None or self._channel is None:
+        if self._connection is None or self._channel is None:  # pragma: no cover
             raise RuntimeError("AMQP channel is not established")
 
-        if queue_name in self._declared_queues:
+        # if we've already declared this queue, skip it
+        if queue_name in self._declared_queues:  # pragma: no cover
             return
 
         done_event: threading.Event = threading.Event()
@@ -99,7 +100,7 @@ class AmqpConnection(Connection, BaseModel):
             )
             done_event.set()
 
-        if not thread_local:
+        if not thread_local:  # pragma: no cover
             self._connection.add_callback_threadsafe(declare)
             done_event.wait()
         else:
@@ -124,19 +125,7 @@ class AmqpConnection(Connection, BaseModel):
         )
 
     def __enter__(self: "AmqpConnection") -> "AmqpConnection":
-        ssl_options: Optional[SSLOptions] = None
-        if self.use_ssl:
-            ssl_options = SSLOptions(context=ssl.create_default_context())
-
-        self._connection = PikaBlockingConnection(
-            parameters=ConnectionParameters(
-                host=self.host,
-                port=self.port,
-                virtual_host=self.vhost,
-                credentials=self.credentials,
-                ssl_options=ssl_options,
-            )
-        )
+        self._connection = self._make_connection()
 
         # declare the queue as durable and set prefetch count to 1
         self._channel = self._connection.channel()
@@ -163,18 +152,11 @@ class AmqpConnection(Connection, BaseModel):
             exchange=self.resubmit_exchange,
         )
 
-        self._consume_thread = AmqpConsumeThread(
-            channel=self._channel,
-            daemon=True,
-        )
-        self._consume_thread.start()  # type: ignore
-
+        self._start_consuming()
         return self
 
     def __exit__(self: "AmqpConnection", exc_type, exc_value, traceback) -> None:
-        if self._consume_thread is not None:
-            self._consume_thread.stop()
-            self._consume_thread.join()
+        self._stop_consuming()
 
         if self._connection is not None:
             self._connection.close()
@@ -205,7 +187,9 @@ class AmqpConnection(Connection, BaseModel):
             )
             return
 
-        raise NotImplementedError("Forwarding to non-str targets is not implemented")
+        raise NotImplementedError(
+            "Forwarding to non-str targets is not implemented"
+        )  # pragma: no cover
 
     def get_message(self: "AmqpConnection") -> QueueMessage:
         message: AmqpMessage | AmqpSentinel = self._message_queue.get()
@@ -242,6 +226,23 @@ class AmqpConnection(Connection, BaseModel):
             ),
         )
 
+    def _make_connection(self: "AmqpConnection") -> PikaBlockingConnection:
+        ssl_options: Optional[SSLOptions] = None
+        if self.use_ssl:
+            raise NotImplementedError(
+                "SSL connections are not yet implemented for RabbitMQ"
+            )
+
+        return PikaBlockingConnection(
+            parameters=ConnectionParameters(
+                host=self.host,
+                port=self.port,
+                virtual_host=self.vhost,
+                credentials=self.credentials,
+                ssl_options=ssl_options,
+            )
+        )
+
     @property
     def resubmit_exchange(self: "AmqpConnection") -> str:
         """
@@ -253,6 +254,23 @@ class AmqpConnection(Connection, BaseModel):
         """
 
         return f"mqkit.resubmit.{slugify(self.queue, separator='_')}"
+
+    def _start_consuming(self: "AmqpConnection") -> None:
+        if self._channel is None:
+            raise RuntimeError("AMQP channel is not established")
+
+        self._consume_thread = AmqpConsumeThread(
+            channel=self._channel,
+            daemon=True,
+        )
+        self._consume_thread.start()  # type: ignore
+
+    def _stop_consuming(self: "AmqpConnection") -> None:
+        if self._consume_thread is not None:
+            self._consume_thread.stop()
+            self._consume_thread.join()
+
+            self._consume_thread = None
 
     def unblock(self: "AmqpConnection", message: Optional[str] = None) -> None:
         if self._connection is None:

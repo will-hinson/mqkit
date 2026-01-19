@@ -37,3 +37,11 @@ class Coordinator(metaclass=ABCMeta):
         """
 
         raise NotImplementedError()  # pragma: no cover
+
+    @abstractmethod
+    def stop(self: "Coordinator") -> None:
+        """
+        Abstract method to stop the coordinator.
+        """
+
+        raise NotImplementedError()

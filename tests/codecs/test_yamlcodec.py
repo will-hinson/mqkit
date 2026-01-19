@@ -31,4 +31,4 @@ def test_yaml_codec_encode_invalid(yaml_codec: YamlCodec) -> None:
         pass
 
     with pytest.raises(EncodeError):
-        print(yaml_codec.encode({"a": NonSerializable()}))
+        yaml_codec.encode({"a": NonSerializable()})

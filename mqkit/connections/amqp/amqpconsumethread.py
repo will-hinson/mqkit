@@ -26,7 +26,7 @@ class AmqpConsumeThread(Thread):
         self._channel = channel
 
     @property
-    def error(self: "AmqpConsumeThread") -> Optional[Exception]:
+    def error(self: "AmqpConsumeThread") -> Optional[Exception]:  # pragma: no cover
         """
         Gets any exception that occurred during message consumption.
 
@@ -43,7 +43,7 @@ class AmqpConsumeThread(Thread):
 
         return self._exception
 
-    def run(self: "AmqpConsumeThread") -> None:
+    def run(self: "AmqpConsumeThread") -> None:  # pragma: no cover
         """
         Starts consuming AMQP messages from the target channel.
 

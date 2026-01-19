@@ -9,12 +9,16 @@ on:
 jobs:
   pytest:
     runs-on: ubuntu-latest
+    environment: unit-testing
     services:
       rabbitmq:
         image: rabbitmq:3-management
         ports:
           - 5672:5672   # AMQP Port
           - 15672:15672 # Management plugin UI
+        env:
+          RABBITMQ_DEFAULT_USER: ${{ secrets.RABBITMQ_USER }}
+          RABBITMQ_DEFAULT_PASS: ${{ secrets.RABBITMQ_PASSWORD }}
         options: --health-cmd="rabbitmqctl status" --health-interval=10s --health-timeout=10s --health-retries=12
     strategy:
       matrix:
@@ -32,8 +36,11 @@ jobs:
       run: |
         poetry install --all-extras
     - name: Run tests with coverage
+      env:
+        RABBITMQ_USER: ${{ secrets.RABBITMQ_USER }}
+        RABBITMQ_PASSWORD: ${{ secrets.RABBITMQ_PASSWORD }}
       run: |
-        poetry run coverage run -m pytest -s
+        poetry run coverage run --concurrency=thread -m pytest -s
     - name: Check coverage ratio
       run: |
         poetry run coverage report --fail-under=100 -m --omit='tests/*'
