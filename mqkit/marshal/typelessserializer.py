@@ -1,3 +1,9 @@
+"""
+module mqkit.marshal.typelessserializer
+
+Defines the TypelessSerializer class for serializing and deserializing typeless data.
+"""
+
 from typing import Any, Dict, Optional
 
 from ..errors import SerializeError
@@ -5,6 +11,12 @@ from .serializer import Serializer
 
 
 class TypelessSerializer(Serializer):
+    """
+    class TypelessSerializer
+
+    A serializer that handles typeless data represented as dictionaries.
+    """
+
     def deserialize(self: "TypelessSerializer", data: bytes) -> Dict[str, Any]:
         return self._codec.decode(data)
 
@@ -15,7 +27,7 @@ class TypelessSerializer(Serializer):
             return None
         if not isinstance(data, dict):
             raise SerializeError(
-                f"TypelessSerializer can only serialize dict types, got {type(data).__name__}"
+                f"TypelessSerializer can only serialize dict types but got {type(data).__name__}"
             )
 
         return self._codec.encode(data)

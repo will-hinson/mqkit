@@ -1,11 +1,19 @@
-__all__ = ["create_engine", "Engine", "RabbitMQEngine"]
+"""
+module mqkit.engines
+
+Defines the Engine base class and factory method to create specific engine instances
+based on connection URLs.
+"""
+
+__all__ = ["create_engine", "Engine", "RabbitMqEngine"]
 
 from typing import Dict, Type
 
-from .engine import Engine
-from .rabbitmqengine import RabbitMqEngine
-
 from yarl import URL
+
+from .engine import Engine
+from .rabbitmq import RabbitMqEngine
+
 
 _scheme_mapping: Dict[str, Type[Engine]] = {
     "amqp": RabbitMqEngine,
@@ -26,8 +34,8 @@ def create_engine(url: str) -> Engine:
 
     connect_url: URL = URL(url)
     if connect_url.scheme not in _scheme_mapping:
-        raise NotImplementedError(
-            f"Engine creation for URL '{url}' is not yet implemented"
+        raise ValueError(
+            f"Unknown URL scheme '{connect_url.scheme}' for engine creation"
         )
 
     return _scheme_mapping[connect_url.scheme].from_url(connect_url)

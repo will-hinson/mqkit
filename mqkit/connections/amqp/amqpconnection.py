@@ -1,21 +1,40 @@
+"""
+module mqkit.connections.amqp.amqpconnection
+
+Defines the AmqpConnection class for managing AMQP connections in message
+queue applications. This connection class is intended to be returned by
+the RabbitMqEngine class
+"""
+
 import functools
 from queue import Queue
-import ssl
-from typing import Optional
+import threading
+from typing import ClassVar, Optional, Set
 
 from pika import BasicProperties, ConnectionParameters, PlainCredentials, SSLOptions
 from pika import BlockingConnection as PikaBlockingConnection
 from pika.adapters.blocking_connection import BlockingChannel
 from pika.amqp_object import Method
-from pydantic import BaseModel, PrivateAttr
+from pydantic import BaseModel, ConfigDict, PrivateAttr
+from slugify import slugify
 
 from .amqpconsumethread import AmqpConsumeThread
 from .amqpmessage import AmqpMessage
+from .amqpsentinel import AmqpSentinel
 from ..connection import Connection
-from ...marshal import QueueMessage
+from ...errors import ShutdownRequested
+from ...marshal import Forward, QueueMessage
 
 
 class AmqpConnection(Connection, BaseModel):
+    """
+    class AmqpConnection
+
+    Manages an AMQP connection using Pika's BlockingConnection. Provides methods
+    for acknowledging message processing results, forwarding messages, and
+    retrieving messages from the queue
+    """
+
     host: str
     port: int
     vhost: str
@@ -26,10 +45,10 @@ class AmqpConnection(Connection, BaseModel):
     _channel: Optional[BlockingChannel] = PrivateAttr(default=None)
     _connection: Optional[PikaBlockingConnection] = PrivateAttr(default=None)
     _consume_thread: Optional[AmqpConsumeThread] = PrivateAttr(default=None)
+    _declared_queues: Set[str] = PrivateAttr(default_factory=set)
     _message_queue: Queue = PrivateAttr(default_factory=Queue)
 
-    class Config:
-        arbitrary_types_allowed = True
+    model_config: ClassVar[ConfigDict] = ConfigDict(arbitrary_types_allowed=True)
 
     def acknowledge_failure(
         self: "AmqpConnection",
@@ -57,6 +76,40 @@ class AmqpConnection(Connection, BaseModel):
             )
         )
 
+    def _declare_queue(
+        self: "AmqpConnection",
+        queue_name: str,
+        *,
+        durable: bool = True,
+        thread_local: bool = False,
+    ) -> None:
+        if self._connection is None or self._channel is None:  # pragma: no cover
+            raise RuntimeError("AMQP channel is not established")
+
+        # if we've already declared this queue, skip it
+        if queue_name in self._declared_queues:  # pragma: no cover
+            return
+
+        done_event: threading.Event = threading.Event()
+
+        def declare() -> None:
+            if self._channel is None:  # pragma: no cover
+                raise RuntimeError("AMQP channel is not established")
+
+            self._channel.queue_declare(  # pyright: ignore[reportOptionalMemberAccess]
+                queue=queue_name,
+                durable=durable,
+            )
+            done_event.set()
+
+        if not thread_local:  # pragma: no cover
+            self._connection.add_callback_threadsafe(declare)
+            done_event.wait()
+        else:
+            declare()
+
+        self._declared_queues.add(queue_name)
+
     def _enqueue_message(
         self: "AmqpConnection",
         channel: BlockingChannel,
@@ -74,22 +127,15 @@ class AmqpConnection(Connection, BaseModel):
         )
 
     def __enter__(self: "AmqpConnection") -> "AmqpConnection":
-        ssl_options: Optional[SSLOptions] = None
-        if self.use_ssl:
-            ssl_options = SSLOptions(context=ssl.create_default_context())
+        self._connection = self._make_connection()
 
-        self._connection = PikaBlockingConnection(
-            parameters=ConnectionParameters(
-                host=self.host,
-                port=self.port,
-                virtual_host=self.vhost,
-                credentials=self.credentials,
-                ssl_options=ssl_options,
-            )
-        )
-
+        # declare the queue as durable and set prefetch count to 1
         self._channel = self._connection.channel()
-        self._channel.queue_declare(queue=self.queue, durable=True)
+        self._declare_queue(
+            queue_name=self.queue,
+            durable=True,
+            thread_local=True,
+        )
         self._channel.basic_qos(prefetch_count=1)
         self._channel.basic_consume(
             on_message_callback=self._enqueue_message,
@@ -97,29 +143,62 @@ class AmqpConnection(Connection, BaseModel):
             auto_ack=False,
         )
 
-        self._consume_thread = AmqpConsumeThread(
-            channel=self._channel,
-            daemon=True,
+        # declare a default resubmit exchange for failed messages
+        self._channel.exchange_declare(
+            exchange=self.resubmit_exchange,
+            exchange_type="direct",
+            durable=True,
         )
-        self._consume_thread.start()  # type: ignore
+        self._channel.queue_bind(
+            queue=self.queue,
+            exchange=self.resubmit_exchange,
+        )
 
+        self._start_consuming()
         return self
 
     def __exit__(self: "AmqpConnection", exc_type, exc_value, traceback) -> None:
-        if self._consume_thread is not None:
-            self._consume_thread.stop()
-            self._consume_thread.join()
+        self._stop_consuming()
 
-        if self._channel is not None:
-            self._channel.close()
         if self._connection is not None:
             self._connection.close()
 
     def _get_delivery_tag(self: "AmqpConnection", message: QueueMessage) -> int:
         return message.attributes["platform"]["method"]["delivery_tag"]
 
+    def forward_message(self: "AmqpConnection", forward: Forward) -> None:
+        if self._connection is None or self._channel is None:
+            raise RuntimeError("AMQP channel is not established")
+
+        if isinstance(forward.forward_target, str):
+            self._declare_queue(
+                queue_name=forward.forward_target,
+                durable=True,
+            )
+            self._connection.add_callback_threadsafe(
+                functools.partial(
+                    self._channel.basic_publish,
+                    exchange="",
+                    routing_key=forward.forward_target,
+                    body=forward.message.data,
+                    properties=BasicProperties(
+                        headers=forward.message.attributes,
+                        delivery_mode=2,  # make message persistent
+                    ),
+                )
+            )
+            return
+
+        raise NotImplementedError(
+            "Forwarding to non-str targets is not implemented"
+        )  # pragma: no cover
+
     def get_message(self: "AmqpConnection") -> QueueMessage:
-        message: AmqpMessage = self._message_queue.get()
+        message: AmqpMessage | AmqpSentinel = self._message_queue.get()
+
+        if isinstance(message, AmqpSentinel):
+            self._message_queue.shutdown()
+            raise ShutdownRequested(*message.args)
 
         return QueueMessage(
             data=message.body,
@@ -148,3 +227,55 @@ class AmqpConnection(Connection, BaseModel):
                 }
             ),
         )
+
+    def _make_connection(self: "AmqpConnection") -> PikaBlockingConnection:
+        ssl_options: Optional[SSLOptions] = None
+        if self.use_ssl:
+            raise NotImplementedError(
+                "SSL connections are not yet implemented for RabbitMQ"
+            )
+
+        return PikaBlockingConnection(
+            parameters=ConnectionParameters(
+                host=self.host,
+                port=self.port,
+                virtual_host=self.vhost,
+                credentials=self.credentials,
+                ssl_options=ssl_options,
+            )
+        )
+
+    @property
+    def resubmit_exchange(self: "AmqpConnection") -> str:
+        """
+        Property that returns the name of the resubmit exchange for the queue
+        associated with this connection.
+
+        Returns:
+            str: The name of the resubmit exchange.
+        """
+
+        return f"mqkit.resubmit.{slugify(self.queue, separator='_')}"
+
+    def _start_consuming(self: "AmqpConnection") -> None:
+        if self._channel is None:
+            raise RuntimeError("AMQP channel is not established")
+
+        self._consume_thread = AmqpConsumeThread(
+            channel=self._channel,
+            daemon=True,
+        )
+        self._consume_thread.start()  # type: ignore
+
+    def _stop_consuming(self: "AmqpConnection") -> None:
+        if self._consume_thread is not None:
+            self._consume_thread.stop()
+            self._consume_thread.join()
+
+            self._consume_thread = None
+
+    def unblock(self: "AmqpConnection", message: Optional[str] = None) -> None:
+        if self._connection is None:
+            raise RuntimeError("AMQP connection is not established")
+
+        self._message_queue.put(AmqpSentinel(message))

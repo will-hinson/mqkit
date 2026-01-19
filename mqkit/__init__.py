@@ -1,3 +1,9 @@
+"""
+module mqkit
+
+A message queue toolkit for building and managing message queue applications.
+"""
+
 __all__ = [
     "App",
     "create_engine",
@@ -7,6 +13,7 @@ __all__ = [
     "endpoints",
     "engines",
     "errors",
+    "events",
     "marshal",
     "workers",
 ]
@@ -16,8 +23,10 @@ from . import credentials
 from . import endpoints
 from . import engines
 from . import errors
+from . import events
 from . import marshal
 from . import workers
 
 App = apps.App
 create_engine = engines.create_engine
+NoRetry = errors.NoRetry

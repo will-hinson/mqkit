@@ -1,10 +1,22 @@
-from abc import ABCMeta, abstractmethod
-from typing import Type
+"""
+module mqkit.connections.connection
 
-from ..marshal import QueueMessage
+Defines the abstract base class Connection for message queue connections.
+"""
+
+from abc import ABCMeta, abstractmethod
+from typing import Optional, Type
+
+from ..marshal import Forward, QueueMessage
 
 
 class Connection(metaclass=ABCMeta):
+    """
+    class Connection
+
+    Abstract base class for message queue connections.
+    """
+
     @abstractmethod
     def acknowledge_failure(self: "Connection", message: QueueMessage) -> None:
         """
@@ -78,6 +90,23 @@ class Connection(metaclass=ABCMeta):
         raise NotImplementedError()
 
     @abstractmethod
+    def forward_message(self: "Connection", forward: Forward) -> None:
+        """
+        Forward a message to another queue.
+
+        Args:
+            forward (Forward): The forward object containing the target and message.
+
+        Returns:
+            None
+
+        Raises:
+            NotImplementedError: If the method is not implemented.
+        """
+
+        raise NotImplementedError()
+
+    @abstractmethod
     def get_message(self: "Connection") -> QueueMessage:
         """
         Block and wait for a message from the connected queue.
@@ -87,6 +116,24 @@ class Connection(metaclass=ABCMeta):
 
         Returns:
             bytes: The message received from the queue.
+
+        Raises:
+            NotImplementedError: If the method is not implemented.
+        """
+
+        raise NotImplementedError()
+
+    @abstractmethod
+    def unblock(self: "Connection", message: Optional[str] = None) -> None:
+        """
+        Unblock the connection if it is blocked waiting for a message by
+        submitting a sentinel message.
+
+        Args:
+            None
+
+        Returns:
+            None
 
         Raises:
             NotImplementedError: If the method is not implemented.

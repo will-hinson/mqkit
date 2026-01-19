@@ -1,14 +1,27 @@
+"""
+module mqkit.engines.rabbitmqengine
+
+Defines the RabbitMqEngine class for connecting to RabbitMQ message brokers.
+"""
+
 from typing import Any, Dict, Type
 
 from pika import PlainCredentials as PikaPlainCredentials
 from yarl import URL
 
-from ..connections.amqp import AmqpConnection
-from ..credentials import PlainCredentials
-from .engine import Engine
+from ...connections.amqp import AmqpConnection
+from ...credentials import PlainCredentials
+from ..engine import Engine
 
 
 class RabbitMqEngine(Engine):
+    """
+    class RabbitMqEngine
+
+    An engine for connecting to RabbitMQ message brokers using AMQP protocol.
+    Provides methods to create AMQP connections to specified queues.
+    """
+
     host: str
     credentials: PlainCredentials
     port: int = 5672

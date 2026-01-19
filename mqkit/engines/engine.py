@@ -1,3 +1,10 @@
+"""
+module mqkit.engines.engine
+
+Defines the abstract Engine class for message queue engines. Engines are responsible
+for creating connections to message queues.
+"""
+
 from abc import ABCMeta, abstractmethod
 from typing import Type
 
@@ -8,11 +15,45 @@ from ..connections import Connection
 
 
 class Engine(BaseModel, metaclass=ABCMeta):
+    """
+    class Engine
+
+    An abstract base class for message queue engines. Engines are responsible for
+    creating connections to message queues.
+    """
+
     @abstractmethod
     def connect(self: "Engine", queue: str) -> Connection:
+        """
+        Create a connection to the specified message queue. Returns a Connection object
+        of the appropriate type for the engine (e.g., AmqpConnection for AMQP engines)
+
+        Args:
+            queue (str): The name of the message queue to connect to.
+
+        Returns:
+            Connection: A connection object for the specified message queue.
+
+        Raises:
+            NotImplementedError: If the method is not implemented.
+        """
+
         raise NotImplementedError()
 
     @classmethod
     @abstractmethod
     def from_url(cls: Type["Engine"], url: URL) -> "Engine":
+        """
+        Create an engine instance from a URL.
+
+        Args:
+            url (URL): The URL to create the engine from.
+
+        Returns:
+            Engine: An instance of the engine.
+
+        Raises:
+            NotImplementedError: If the method is not implemented.
+        """
+
         raise NotImplementedError()
