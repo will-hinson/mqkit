@@ -1,10 +1,9 @@
 name: Unit Testing
 
 on:
-  push:
+  pull_request:
     branches:
       - main
-      - dev
 
 jobs:
   pytest:

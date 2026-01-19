@@ -8,7 +8,6 @@ the RabbitMqEngine class
 
 import functools
 from queue import Queue
-import ssl
 import threading
 from typing import ClassVar, Optional, Set
 
