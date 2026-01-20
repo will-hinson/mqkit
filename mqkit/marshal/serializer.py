@@ -21,7 +21,12 @@ class Serializer(metaclass=ABCMeta):
 
     _codec: Codec
 
-    def __init__(self: "Serializer", function: Callable, codec: Codec) -> None:
+    def __init__(
+        # pylint: disable=unused-argument
+        self: "Serializer",
+        function: Callable,
+        codec: Codec,
+    ) -> None:
         self._codec = codec
 
     @abstractmethod

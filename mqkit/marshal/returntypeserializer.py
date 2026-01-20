@@ -99,8 +99,6 @@ class ReturnTypeSerializer(Serializer):
                 f"(type {type(data).__name__})"
             )
 
-        return None
-
     def _serialize_base_model(
         self: "ReturnTypeSerializer", data: Any
     ) -> Dict[str, Any]:
