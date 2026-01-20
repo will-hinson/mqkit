@@ -52,6 +52,7 @@ class QueueEndpoint(Endpoint):
                         },
                         forwarded=True,
                         origin_queue=self._queue_name,
+                        topic=None,
                     ),
                 ),
             )
