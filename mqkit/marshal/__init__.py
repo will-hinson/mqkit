@@ -5,6 +5,7 @@ A module providing serialization and message handling utilities for message queu
 """
 
 __all__ = [
+    "Attributes",
     "codecs",
     "Forward",
     "QueueMessage",
@@ -15,6 +16,7 @@ __all__ = [
 
 from . import codecs
 
+from .attributes import Attributes
 from .forward import Forward
 from .queuemessage import QueueMessage
 from .returntypeserializer import ReturnTypeSerializer

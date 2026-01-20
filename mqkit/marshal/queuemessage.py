@@ -4,9 +4,9 @@ module mqkit.marshal.queuemessage
 Defines the QueueMessage data model representing a message in a message queue.
 """
 
-from typing import Any, Dict
-
 from pydantic import BaseModel
+
+from .attributes import Attributes
 
 
 class QueueMessage(BaseModel):
@@ -17,4 +17,4 @@ class QueueMessage(BaseModel):
     """
 
     data: bytes
-    attributes: Dict[str, Any]
+    attributes: Attributes

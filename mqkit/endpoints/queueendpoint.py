@@ -8,7 +8,7 @@ from typing import Callable, Optional
 
 from .endpoint import Endpoint
 from ..errors import NoForwardTargetError
-from ..marshal import Forward, QueueMessage
+from ..marshal import Attributes, Forward, QueueMessage
 from ..marshal.codecs import CodecType
 
 
@@ -45,10 +45,14 @@ class QueueEndpoint(Endpoint):
                 forward_target=self._forward_to,
                 message=QueueMessage(
                     data=data,
-                    attributes={
-                        "x-mqkit-forwarded": "true",
-                        "x-mqkit-origin-queue": self._queue_name,
-                    },
+                    attributes=Attributes(
+                        headers={
+                            "x-mqkit-forwarded": "true",
+                            "x-mqkit-origin-queue": self._queue_name,
+                        },
+                        forwarded=True,
+                        origin_queue=self._queue_name,
+                    ),
                 ),
             )
 
