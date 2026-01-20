@@ -11,8 +11,14 @@ import functools
 import inspect
 from typing import Any, Callable, Dict, NoReturn, Optional, Type
 
-from ..errors import EndpointSignatureError
-from ..marshal import Forward, QueueMessage, Serializer, TypelessSerializer
+from ..errors import FunctionSignatureError
+from ..marshal import (
+    Forward,
+    QueueMessage,
+    ReturnTypeSerializer,
+    Serializer,
+    TypelessSerializer,
+)
 from ..marshal.codecs import Codec, CodecType, JsonCodec, MessagePackCodec, YamlCodec
 
 _codec_type_to_class: Dict[CodecType, Type[Codec]] = {
@@ -124,18 +130,36 @@ class Endpoint(metaclass=ABCMeta):
 
         signature: inspect.Signature = inspect.signature(func)
         if len(signature.parameters) != 2:
-            raise EndpointSignatureError(
+            raise FunctionSignatureError(
                 f"Function {func.__name__}() must accept exactly two parameters"
             )
 
         # check for no type annotations. if this is the case, infer no return value
         if func.__annotations__ == {}:
-            return TypelessSerializer(codec=codec)
+            return self._make_serializer_typeless(function=func, codec=codec)
 
-        raise EndpointSignatureError(
+        # check for a return type annotation
+        if "return" in func.__annotations__ and len(func.__annotations__) == 1:
+            return self._make_serializer_return_type(function=func, codec=codec)
+
+        raise FunctionSignatureError(
             "Unable to infer serializer type from function annotations for function "
             f"{func.__name__}()"
         )  # pragma: no cover
+
+    def _make_serializer_return_type(
+        self: "Endpoint",
+        function: Callable,
+        codec: Codec,
+    ) -> Serializer:
+        return ReturnTypeSerializer(function=function, codec=codec)
+
+    def _make_serializer_typeless(
+        self: "Endpoint",
+        function: Callable,
+        codec: Codec,
+    ) -> Serializer:
+        return TypelessSerializer(function=function, codec=codec)
 
     def _wrap_with_decode(
         self: "Endpoint", func: Callable, codec_type: CodecType

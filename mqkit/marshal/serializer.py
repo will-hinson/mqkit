@@ -6,7 +6,7 @@ to and from bytestrings using a specified codec.
 """
 
 from abc import ABCMeta, abstractmethod
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 from .codecs import Codec
 
@@ -21,7 +21,12 @@ class Serializer(metaclass=ABCMeta):
 
     _codec: Codec
 
-    def __init__(self: "Serializer", codec: Codec) -> None:
+    def __init__(
+        # pylint: disable=unused-argument
+        self: "Serializer",
+        function: Callable,
+        codec: Codec,
+    ) -> None:
         self._codec = codec
 
     @abstractmethod

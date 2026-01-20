@@ -160,7 +160,7 @@ class AmqpConnection(Connection, BaseModel):
     def __exit__(self: "AmqpConnection", exc_type, exc_value, traceback) -> None:
         self._stop_consuming()
 
-        if self._connection is not None:
+        if self._connection is not None and not self._connection.is_closed:
             self._connection.close()
 
     def _get_delivery_tag(self: "AmqpConnection", message: QueueMessage) -> int:

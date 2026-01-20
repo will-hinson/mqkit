@@ -1,7 +1,10 @@
 import inspect
 
+from pydantic import BaseModel
+
 from mqkit.endpoints import Endpoint, QueueEndpoint
-from mqkit.errors import EndpointSignatureError
+from mqkit.errors import FunctionSignatureError
+from mqkit.marshal import ReturnTypeSerializer, TypelessSerializer
 from mqkit.marshal.codecs import CodecType
 
 import pytest
@@ -35,9 +38,64 @@ def test_endpoint_cannot_call() -> None:
 
 
 def test_endpoint_bad_signature() -> None:
-    with pytest.raises(EndpointSignatureError):
+    with pytest.raises(FunctionSignatureError):
         QueueEndpoint(
             queue_name="test",
             target=lambda a: None,
             codec_type=CodecType.JSON,
+        )
+
+
+def test_endpoint_type_detection() -> None:
+    def typeless_handler(a, b):
+        pass
+
+    endpoint = QueueEndpoint(
+        queue_name="test",
+        target=typeless_handler,
+        codec_type=CodecType.JSON,
+    )
+    assert isinstance(
+        {
+            name: cell.cell_contents
+            for name, cell in zip(
+                endpoint.target.__code__.co_freevars,
+                endpoint.target.__closure__,  # type: ignore
+            )
+        }["serializer"],
+        TypelessSerializer,
+    )
+
+    class TestModel(BaseModel):
+        x: int
+        y: str
+
+    def return_type_handler_type1(a, b) -> dict:
+        return {}
+
+    def return_type_handler_type2(a, b) -> None:
+        return None
+
+    def return_type_handler_type3(a, b) -> TestModel:
+        return TestModel(x=1, y="test")
+
+    for return_type_handler in [
+        return_type_handler_type1,
+        return_type_handler_type2,
+        return_type_handler_type3,
+    ]:
+        endpoint = QueueEndpoint(
+            queue_name="test",
+            target=return_type_handler,
+            codec_type=CodecType.JSON,
+        )
+        assert isinstance(
+            {
+                name: cell.cell_contents
+                for name, cell in zip(
+                    endpoint.target.__code__.co_freevars,
+                    endpoint.target.__closure__,  # type: ignore
+                )
+            }["serializer"],
+            ReturnTypeSerializer,
         )
