@@ -8,7 +8,7 @@ import pytest
 
 
 def test_typelessserializer_deserialize() -> None:
-    serializer = TypelessSerializer(JsonCodec())
+    serializer = TypelessSerializer(lambda *_: None, JsonCodec())
 
     data: Optional[object] = serializer.deserialize(b'{"key": "value", "number": 42}')
     assert isinstance(data, dict)
@@ -16,7 +16,7 @@ def test_typelessserializer_deserialize() -> None:
 
 
 def test_typelessserializer_serialize() -> None:
-    serializer = TypelessSerializer(JsonCodec())
+    serializer = TypelessSerializer(lambda *_: None, JsonCodec())
 
     assert serializer.serialize(None) is None
 

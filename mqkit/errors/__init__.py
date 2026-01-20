@@ -9,7 +9,7 @@ __all__ = [
     "DecodeError",
     "EncodeError",
     "EndpointError",
-    "EndpointSignatureError",
+    "FunctionSignatureError",
     "FunctionTypeError",
     "MarshalError",
     "MessageError",
@@ -24,7 +24,7 @@ from .apperror import AppError
 from .decodeerror import DecodeError
 from .encodeerror import EncodeError
 from .endpointerror import EndpointError
-from .endpointsignatureerror import EndpointSignatureError
+from .functionsignatureerror import FunctionSignatureError
 from .functiontypeerror import FunctionTypeError
 from .marshalerror import MarshalError
 from .messageerror import MessageError
