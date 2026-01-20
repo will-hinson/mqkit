@@ -23,7 +23,7 @@ from .amqpmessage import AmqpMessage
 from .amqpsentinel import AmqpSentinel
 from ..connection import Connection
 from ...errors import ShutdownRequested
-from ...marshal import Forward, QueueMessage
+from ...marshal import Attributes, Forward, QueueMessage
 
 
 class AmqpConnection(Connection, BaseModel):
@@ -164,7 +164,7 @@ class AmqpConnection(Connection, BaseModel):
             self._connection.close()
 
     def _get_delivery_tag(self: "AmqpConnection", message: QueueMessage) -> int:
-        return message.attributes["platform"]["method"]["delivery_tag"]
+        return message.attributes.platform["method"]["delivery_tag"]  # type: ignore
 
     def forward_message(self: "AmqpConnection", forward: Forward) -> None:
         if self._connection is None or self._channel is None:
@@ -182,7 +182,7 @@ class AmqpConnection(Connection, BaseModel):
                     routing_key=forward.forward_target,
                     body=forward.message.data,
                     properties=BasicProperties(
-                        headers=forward.message.attributes,
+                        headers=forward.message.attributes.headers,
                         delivery_mode=2,  # make message persistent
                     ),
                 )
@@ -202,29 +202,37 @@ class AmqpConnection(Connection, BaseModel):
 
         return QueueMessage(
             data=message.body,
-            attributes=(
-                {
-                    key: value
+            attributes=Attributes(
+                headers={
+                    key: str(value)
                     for key, value in (message.properties.headers or {}).items()
                     if not key.startswith("x-mqkit-")
-                }
-                | {
-                    "platform": {
-                        "channel": {
-                            "number": message.channel.channel_number,
-                        },
-                        "method": {
-                            "consumer_tag": message.method.consumer_tag,  # type: ignore
-                            "delivery_tag": message.method.delivery_tag,  # type: ignore
-                            "exchange": message.method.exchange,  # type: ignore
-                            "redelivered": message.method.redelivered,  # type: ignore
-                            "routing_key": message.method.routing_key,  # type: ignore
-                        },
-                        "properties": {
-                            "delivery_mode": message.properties.delivery_mode,
-                        },
-                    }
-                }
+                },
+                platform={
+                    "channel": {
+                        "number": message.channel.channel_number,
+                    },
+                    "method": {
+                        "consumer_tag": message.method.consumer_tag,  # type: ignore
+                        "delivery_tag": message.method.delivery_tag,  # type: ignore
+                        "exchange": message.method.exchange,  # type: ignore
+                        "redelivered": message.method.redelivered,  # type: ignore
+                        "routing_key": message.method.routing_key,  # type: ignore
+                    },
+                    "properties": {
+                        "delivery_mode": message.properties.delivery_mode,
+                    },
+                },
+                forwarded=(
+                    bool(message.properties.headers.get("x-mqkit-forwarded", "false"))
+                    if message.properties.headers
+                    else False
+                ),
+                origin_queue=(
+                    str(message.properties.headers.get("x-mqkit-origin-queue"))
+                    if message.properties.headers
+                    else None
+                ),
             ),
         )
 

@@ -2,7 +2,7 @@ from typing import Optional
 
 from mqkit.endpoints import QueueEndpoint
 from mqkit.errors.noforwardtargeterror import NoForwardTargetError
-from mqkit.marshal import Forward, QueueMessage
+from mqkit.marshal import Attributes, Forward, QueueMessage
 
 import pytest
 
@@ -23,7 +23,7 @@ def test_queue_endpoint_no_forward_no_result() -> None:
     result: Optional[Forward] = endpoint.handle_message(
         QueueMessage(
             data=b'{"key": "value"}',
-            attributes={},
+            attributes=Attributes(headers={}, forwarded=False),
         )
     )
     assert result is None
@@ -46,7 +46,7 @@ def test_queue_endpoint_no_forward_with_result() -> None:
         endpoint.handle_message(
             QueueMessage(
                 data=b'{"key": "value"}',
-                attributes={},
+                attributes=Attributes(headers={}, forwarded=False),
             )
         )
 
@@ -68,7 +68,7 @@ def test_queue_endpoint_with_forward_queue() -> None:
     result: Optional[Forward] = endpoint.handle_message(
         QueueMessage(
             data=b'{"key": "value"}',
-            attributes={},
+            attributes=Attributes(headers={}, forwarded=False),
         )
     )
     assert result is not None

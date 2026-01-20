@@ -75,7 +75,8 @@ def test_amqp_connection_success(rabbitmq_engine: RabbitMqEngine) -> None:
         # get the message and verify its contents
         message: QueueMessage = connection.get_message()
         assert message.data.decode("utf-8") == message_data
-        assert not message.attributes["platform"]["method"].get("redelivered", True)
+        assert message.attributes.platform is not None
+        assert not message.attributes.platform["method"].get("redelivered", True)
 
         # acknowledge the message as successfully processed and verify the queue is empty
         connection.acknowledge_success(message)
@@ -97,7 +98,8 @@ def test_amqp_connection_failure(rabbitmq_engine: RabbitMqEngine) -> None:
         # get the message and verify its contents
         message: QueueMessage = connection.get_message()
         assert message.data.decode("utf-8") == message_data
-        assert not message.attributes["platform"]["method"].get("redelivered", True)
+        assert message.attributes.platform is not None
+        assert not message.attributes.platform["method"].get("redelivered", True)
 
         # acknowledge the message as failed. by default, it won't be requeued
         connection.acknowledge_failure(message)
