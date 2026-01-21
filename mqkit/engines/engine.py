@@ -23,7 +23,12 @@ class Engine(BaseModel, metaclass=ABCMeta):
     """
 
     @abstractmethod
-    def connect(self: "Engine", queue: str) -> Connection:
+    def connect(
+        self: "Engine",
+        queue: str,
+        persistent: bool = True,
+        auto_delete: bool = False,
+    ) -> Connection:
         """
         Create a connection to the specified message queue. Returns a Connection object
         of the appropriate type for the engine (e.g., AmqpConnection for AMQP engines)

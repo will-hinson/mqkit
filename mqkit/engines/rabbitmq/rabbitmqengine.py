@@ -28,7 +28,12 @@ class RabbitMqEngine(Engine):
     vhost: str = "/"
     use_amqps: bool = False
 
-    def connect(self: "RabbitMqEngine", queue: str) -> AmqpConnection:
+    def connect(
+        self: "RabbitMqEngine",
+        queue: str,
+        persistent: bool = True,
+        auto_delete: bool = False,
+    ) -> AmqpConnection:
         return AmqpConnection(
             host=self.host,
             port=self.port,
@@ -38,6 +43,8 @@ class RabbitMqEngine(Engine):
             ),
             queue=queue,
             use_ssl=self.use_amqps,
+            persistent=persistent,
+            auto_delete=auto_delete,
         )
 
     @classmethod

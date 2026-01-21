@@ -56,6 +56,7 @@ def test_threadworker_no_forwarding(rabbitmq_engine: RabbitMqEngine) -> None:
         finally:
             worker.stop("Test complete")
             worker.join()
+            assert worker.stopped
 
         # now, put a few more messages in and ensure they are not processed
         for n in range(5, 10):
@@ -100,6 +101,7 @@ def test_threadworker_no_retry(rabbitmq_engine: RabbitMqEngine) -> None:
         finally:
             worker.stop("Test complete")
             worker.join()
+            assert worker.stopped
 
 
 def test_threadworker_with_queue_forwarding(rabbitmq_engine: RabbitMqEngine) -> None:
@@ -142,6 +144,7 @@ def test_threadworker_with_queue_forwarding(rabbitmq_engine: RabbitMqEngine) -> 
         finally:
             worker.stop("Test complete")
             worker.join()
+            assert worker.stopped
 
         # now, put a few more messages in and ensure they are not processed
         for n in range(5, 10):

@@ -19,14 +19,19 @@ class QueueEndpoint(Endpoint):
     Represents an endpoint for processing messages from a message queue.
     """
 
+    auto_delete: bool
     _forward_to: Optional[str] = None
+    persistent: bool
 
     def __init__(
+        # pylint: disable=too-many-arguments,too-many-positional-arguments
         self: "QueueEndpoint",
         queue_name: str,
         target: Callable,
         codec_type: CodecType | str,
         forward_to: Optional[str] = None,
+        persistent: bool = True,
+        auto_delete: bool = False,
     ) -> None:
         codec_type = CodecType(codec_type)
         super().__init__(
@@ -35,7 +40,9 @@ class QueueEndpoint(Endpoint):
             codec_type=codec_type,
         )
 
+        self.auto_delete = auto_delete
         self._forward_to = forward_to
+        self.persistent = persistent
 
     def _forward_result(self: "QueueEndpoint", data: bytes) -> Optional[Forward]:
         assert self._forward_to is not None
