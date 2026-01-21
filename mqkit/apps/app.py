@@ -146,6 +146,8 @@ class App:
         name: str,
         codec: Optional[CodecType | str] = None,
         forward_to: Optional[str] = None,
+        persistent: bool = True,
+        auto_delete: bool = False,
     ) -> Callable[[Callable], QueueEndpoint]:
         """
         Decorator to register a function as a queue endpoint.
@@ -176,6 +178,8 @@ class App:
                     target=func,
                     codec_type=codec,
                     forward_to=forward_to,
+                    persistent=persistent,
+                    auto_delete=auto_delete,
                 )
             )
             return self._endpoints[-1]  # type: ignore

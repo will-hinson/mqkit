@@ -35,12 +35,14 @@ class AmqpConnection(Connection, BaseModel):
     retrieving messages from the queue
     """
 
+    auto_delete: bool
     host: str
     port: int
     vhost: str
     credentials: PlainCredentials
     queue: str
     use_ssl: bool = False
+    persistent: bool
 
     _channel: Optional[BlockingChannel] = PrivateAttr(default=None)
     _connection: Optional[PikaBlockingConnection] = PrivateAttr(default=None)
@@ -80,7 +82,8 @@ class AmqpConnection(Connection, BaseModel):
         self: "AmqpConnection",
         queue_name: str,
         *,
-        durable: bool = True,
+        durable: bool,
+        auto_delete: bool,
         thread_local: bool = False,
     ) -> None:
         if self._connection is None or self._channel is None:  # pragma: no cover
@@ -99,6 +102,7 @@ class AmqpConnection(Connection, BaseModel):
             self._channel.queue_declare(  # pyright: ignore[reportOptionalMemberAccess]
                 queue=queue_name,
                 durable=durable,
+                auto_delete=auto_delete,
             )
             done_event.set()
 
@@ -129,12 +133,13 @@ class AmqpConnection(Connection, BaseModel):
     def __enter__(self: "AmqpConnection") -> "AmqpConnection":
         self._connection = self._make_connection()
 
-        # declare the queue as durable and set prefetch count to 1
+        # declare the queue as durable if needed and set prefetch count to 1
         self._channel = self._connection.channel()
         self._declare_queue(
             queue_name=self.queue,
-            durable=True,
+            durable=self.persistent,
             thread_local=True,
+            auto_delete=self.auto_delete,
         )
         self._channel.basic_qos(prefetch_count=1)
         self._channel.basic_consume(
@@ -147,7 +152,7 @@ class AmqpConnection(Connection, BaseModel):
         self._channel.exchange_declare(
             exchange=self.resubmit_exchange,
             exchange_type="direct",
-            durable=True,
+            durable=self.persistent,
         )
         self._channel.queue_bind(
             queue=self.queue,
@@ -171,9 +176,12 @@ class AmqpConnection(Connection, BaseModel):
             raise RuntimeError("AMQP channel is not established")
 
         if isinstance(forward.forward_target, str):
+            # TODO: support forward target durability options. we can maybe infer
+            # from other queue definitions
             self._declare_queue(
                 queue_name=forward.forward_target,
                 durable=True,
+                auto_delete=False,
             )
             self._connection.add_callback_threadsafe(
                 functools.partial(

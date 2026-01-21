@@ -10,7 +10,7 @@ from threading import Event, Thread
 from typing import Optional
 
 from ...connections import Connection
-from ...endpoints import Endpoint
+from ...endpoints import Endpoint, QueueEndpoint
 from ...engines import Engine
 from ...errors import NoRetry, ShutdownRequested
 from ..worker import Worker
@@ -99,7 +99,17 @@ class ThreadWorker(Worker, Thread):
     def run(self: "ThreadWorker") -> None:
         try:
             with self._engine.connect(
-                queue=self._endpoint.queue_name
+                queue=self._endpoint.queue_name,
+                persistent=(
+                    self._endpoint.persistent
+                    if isinstance(self._endpoint, QueueEndpoint)
+                    else False
+                ),
+                auto_delete=(
+                    self._endpoint.auto_delete
+                    if isinstance(self._endpoint, QueueEndpoint)
+                    else False
+                ),
             ) as self.connection:
                 self._started_event.set()
                 self._process_messages()
@@ -137,3 +147,20 @@ class ThreadWorker(Worker, Thread):
         # if a message is already processing, the while loop will simply
         # exit after the message is processed
         self.connection.unblock(message=message)
+
+    @property
+    def stopped(self: "ThreadWorker") -> bool:
+        """
+        Indicates whether the worker has been stopped.
+
+        Args:
+            None
+
+        Returns:
+            bool: True if the worker has been stopped, False otherwise.
+
+        Raises:
+            Nothing
+        """
+
+        return self._stopped
