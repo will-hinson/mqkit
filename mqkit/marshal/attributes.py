@@ -5,7 +5,7 @@ Defines the Attributes class representing message attributes in the
 message queue system.
 """
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
 
 from pydantic import BaseModel
 
@@ -21,3 +21,4 @@ class Attributes(BaseModel):
     platform: Optional[Dict[str, Any]] = None
     forwarded: bool
     origin_queue: Optional[str] = None
+    topic: Union[str, None]

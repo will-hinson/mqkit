@@ -23,7 +23,11 @@ def test_queue_endpoint_no_forward_no_result() -> None:
     result: Optional[Forward] = endpoint.handle_message(
         QueueMessage(
             data=b'{"key": "value"}',
-            attributes=Attributes(headers={}, forwarded=False),
+            attributes=Attributes(
+                headers={},
+                forwarded=False,
+                topic=None,
+            ),
         )
     )
     assert result is None
@@ -46,7 +50,11 @@ def test_queue_endpoint_no_forward_with_result() -> None:
         endpoint.handle_message(
             QueueMessage(
                 data=b'{"key": "value"}',
-                attributes=Attributes(headers={}, forwarded=False),
+                attributes=Attributes(
+                    headers={},
+                    forwarded=False,
+                    topic=None,
+                ),
             )
         )
 
@@ -68,7 +76,11 @@ def test_queue_endpoint_with_forward_queue() -> None:
     result: Optional[Forward] = endpoint.handle_message(
         QueueMessage(
             data=b'{"key": "value"}',
-            attributes=Attributes(headers={}, forwarded=False),
+            attributes=Attributes(
+                headers={},
+                forwarded=False,
+                topic=None,
+            ),
         )
     )
     assert result is not None

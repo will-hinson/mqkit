@@ -233,6 +233,11 @@ class AmqpConnection(Connection, BaseModel):
                     if message.properties.headers
                     else None
                 ),
+                topic=(
+                    message.method.routing_key  # type: ignore
+                    if message.method.exchange != ""  # type: ignore
+                    else None
+                ),
             ),
         )
 

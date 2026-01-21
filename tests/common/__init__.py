@@ -1,10 +1,10 @@
 import os
 from typing import Callable
-
 import uuid
 
 import requests
 from requests import Response
+from slugify import slugify
 
 
 TEST_HOST: str = os.environ.get("RABBITMQ_HOST", "localhost")
@@ -44,9 +44,13 @@ class ManagedQueue:
         return self
 
     def __exit__(self: "ManagedQueue", exc_type, exc_value, traceback) -> None:
-        # delete the queue when we're done
+        # delete the queue and resubmit exchange when we're done
         requests.delete(
             build_management_url(f"/api/queues/%2F/{self.name}"),
+            auth=(TEST_USERNAME, TEST_PASSWORD),
+        )
+        requests.delete(
+            build_management_url(f"/api/exchanges/%2F/{self.resubmit_exchange}"),
             auth=(TEST_USERNAME, TEST_PASSWORD),
         )
 
@@ -85,6 +89,10 @@ class ManagedQueue:
         )
         assert response.ok, "Failed to publish message to the queue"
         assert response.json().get("routed", False), "Message was not routed to a queue"
+
+    @property
+    def resubmit_exchange(self: "ManagedQueue") -> str:
+        return f"mqkit.resubmit.{slugify(self.name, separator='_')}"
 
     @property
     def size(self: "ManagedQueue") -> int:
