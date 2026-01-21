@@ -24,6 +24,7 @@ class QueueEndpoint(Endpoint):
     persistent: bool
 
     def __init__(
+        # pylint: disable=too-many-arguments,too-many-positional-arguments
         self: "QueueEndpoint",
         queue_name: str,
         target: Callable,

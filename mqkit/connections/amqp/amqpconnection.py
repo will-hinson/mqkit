@@ -176,7 +176,7 @@ class AmqpConnection(Connection, BaseModel):
             raise RuntimeError("AMQP channel is not established")
 
         if isinstance(forward.forward_target, str):
-            # TODO: support forward target durability options. we can maybe infer
+            # NOTE: support forward target durability options later. we can maybe infer
             # from other queue definitions
             self._declare_queue(
                 queue_name=forward.forward_target,

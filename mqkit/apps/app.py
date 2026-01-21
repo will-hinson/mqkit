@@ -142,6 +142,7 @@ class App:
         return self.on_event(AppEventType.START)(func)
 
     def queue(
+        # pylint: disable=too-many-arguments,too-many-positional-arguments
         self: "App",
         name: str,
         codec: Optional[CodecType | str] = None,
