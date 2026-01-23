@@ -2,6 +2,7 @@ from threading import Thread
 import time
 
 from mqkit.endpoints import QueueEndpoint
+from mqkit.endpoints.config import QueueEndpointConfig
 from mqkit.engines import create_engine
 from mqkit.engines.rabbitmq import RabbitMqEngine
 from mqkit.errors import FunctionTypeError
@@ -37,9 +38,11 @@ def test_threadcoordinator_bad_endpoint_function(
         ThreadCoordinator(
             endpoints=[
                 QueueEndpoint(
-                    "some_queue",
-                    target=async_function,
-                    codec_type="json",
+                    QueueEndpointConfig(
+                        queue_name="some_queue",
+                        target=async_function,
+                        codec_type="json",
+                    )
                 )
             ],
             engine=rabbitmq_engine,
@@ -61,9 +64,11 @@ def test_threadcoordinator_keyboard_interrupt(
         coordinator = ThreadCoordinator(
             endpoints=[
                 QueueEndpoint(
-                    managed_queue.name,
-                    target=sync_function,
-                    codec_type="json",
+                    QueueEndpointConfig(
+                        queue_name=managed_queue.name,
+                        target=sync_function,
+                        codec_type="json",
+                    )
                 )
             ],
             engine=rabbitmq_engine,
@@ -110,9 +115,11 @@ def test_threadcoordinator_single_endpoint(
         coordinator = ThreadCoordinator(
             endpoints=[
                 QueueEndpoint(
-                    managed_queue.name,
-                    target=sync_function,
-                    codec_type="json",
+                    QueueEndpointConfig(
+                        queue_name=managed_queue.name,
+                        target=sync_function,
+                        codec_type="json",
+                    )
                 )
             ],
             engine=rabbitmq_engine,

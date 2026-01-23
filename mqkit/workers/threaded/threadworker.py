@@ -10,7 +10,7 @@ from threading import Event, Thread
 from typing import Optional
 
 from ...connections import Connection
-from ...endpoints import Endpoint, QueueEndpoint
+from ...endpoints import Endpoint
 from ...engines import Engine
 from ...errors import NoRetry, ShutdownRequested
 from ..worker import Worker
@@ -100,16 +100,8 @@ class ThreadWorker(Worker, Thread):
         try:
             with self._engine.connect(
                 queue=self._endpoint.queue_name,
-                persistent=(
-                    self._endpoint.persistent
-                    if isinstance(self._endpoint, QueueEndpoint)
-                    else False
-                ),
-                auto_delete=(
-                    self._endpoint.auto_delete
-                    if isinstance(self._endpoint, QueueEndpoint)
-                    else False
-                ),
+                persistent=self._endpoint.is_persistent,
+                auto_delete=self._endpoint.is_auto_delete,
             ) as self.connection:
                 self._started_event.set()
                 self._process_messages()

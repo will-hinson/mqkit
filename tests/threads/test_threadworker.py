@@ -1,7 +1,8 @@
 import time
 
 from mqkit import create_engine, NoRetry
-from mqkit.endpoints.queueendpoint import QueueEndpoint
+from mqkit.endpoints import QueueEndpoint
+from mqkit.endpoints.config import QueueEndpointConfig
 from mqkit.engines.rabbitmq import RabbitMqEngine
 from mqkit.workers.threaded import ThreadWorker
 
@@ -37,9 +38,11 @@ def test_threadworker_no_forwarding(rabbitmq_engine: RabbitMqEngine) -> None:
         # define/start the ThreadWorker and wait for the queue to be ready
         worker: ThreadWorker = ThreadWorker(
             QueueEndpoint(
-                queue_name=managed_queue.name,
-                target=target,
-                codec_type="json",
+                QueueEndpointConfig(
+                    queue_name=managed_queue.name,
+                    target=target,
+                    codec_type="json",
+                )
             ),
             engine=rabbitmq_engine,
         )
@@ -78,9 +81,11 @@ def test_threadworker_no_retry(rabbitmq_engine: RabbitMqEngine) -> None:
         # define/start the ThreadWorker and wait for the queue to be ready
         worker: ThreadWorker = ThreadWorker(
             QueueEndpoint(
-                queue_name=managed_queue.name,
-                target=target,
-                codec_type="json",
+                QueueEndpointConfig(
+                    queue_name=managed_queue.name,
+                    target=target,
+                    codec_type="json",
+                )
             ),
             engine=rabbitmq_engine,
         )
@@ -121,10 +126,12 @@ def test_threadworker_with_queue_forwarding(rabbitmq_engine: RabbitMqEngine) -> 
         # define/start the ThreadWorker and wait for the queue to be ready
         worker: ThreadWorker = ThreadWorker(
             QueueEndpoint(
-                queue_name=source_queue.name,
-                target=target,
-                codec_type="json",
-                forward_to=forwarded_queue.name,
+                QueueEndpointConfig(
+                    queue_name=source_queue.name,
+                    target=target,
+                    codec_type="json",
+                    forward_to=forwarded_queue.name,
+                )
             ),
             engine=rabbitmq_engine,
         )
