@@ -16,4 +16,5 @@ class CodecType(str, Enum):
 
     JSON = "json"
     MESSAGEPACK = "messagepack"
+    RAW = "raw"
     YAML = "yaml"
