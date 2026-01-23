@@ -23,7 +23,14 @@ from .amqpmessage import AmqpMessage
 from .amqpsentinel import AmqpSentinel
 from ..connection import Connection
 from ...errors import ShutdownRequested
-from ...messaging import Attributes, Forward, Queue, QueueMessage
+from ...messaging import (
+    Attributes,
+    Exchange,
+    ExchangeType,
+    Forward,
+    Queue,
+    QueueMessage,
+)
 
 
 class AmqpConnection(Connection, BaseModel):
@@ -45,6 +52,7 @@ class AmqpConnection(Connection, BaseModel):
     _channel: Optional[BlockingChannel] = PrivateAttr(default=None)
     _connection: Optional[PikaBlockingConnection] = PrivateAttr(default=None)
     _consume_thread: Optional[AmqpConsumeThread] = PrivateAttr(default=None)
+    _declared_exchanges: Set[str] = PrivateAttr(default_factory=set)
     _declared_queues: Set[str] = PrivateAttr(default_factory=set)
     _message_queue: ProcessQueue = PrivateAttr(default_factory=ProcessQueue)
 
@@ -75,6 +83,50 @@ class AmqpConnection(Connection, BaseModel):
                 delivery_tag=self._get_delivery_tag(message),
             )
         )
+
+    def _declare_exchange(
+        self: "AmqpConnection",
+        exchange: Exchange,
+        thread_local: bool = False,
+    ) -> None:
+        if self._connection is None or self._channel is None:  # pragma: no cover
+            raise RuntimeError("AMQP channel is not established")
+
+        # if we've already declared this exchange, skip it
+        if exchange.name in self._declared_exchanges:  # pragma: no cover
+            return
+
+        done_event: threading.Event = threading.Event()
+        declare_exception: Optional[Exception] = None
+
+        def declare() -> None:
+            if self._channel is None:  # pragma: no cover
+                raise RuntimeError("AMQP channel is not established")
+
+            # pylint: disable=broad-exception-caught
+            try:
+                self._channel.exchange_declare(
+                    exchange=exchange.name,
+                    exchange_type=exchange.type.value,
+                    durable=exchange.persistent,
+                    auto_delete=exchange.auto_delete,
+                )
+            except Exception as exc:  # pragma: no cover
+                nonlocal declare_exception
+                declare_exception = exc
+            finally:
+                done_event.set()
+
+        if not thread_local:  # pragma: no cover
+            self._connection.add_callback_threadsafe(declare)
+            done_event.wait()
+        else:
+            declare()
+
+        if declare_exception is not None:  # pragma: no cover
+            raise declare_exception
+
+        self._declared_exchanges.add(exchange.name)
 
     def _declare_queue(
         self: "AmqpConnection",
@@ -142,10 +194,13 @@ class AmqpConnection(Connection, BaseModel):
         )
 
         # declare a default resubmit exchange for failed messages
-        self._channel.exchange_declare(
-            exchange=self.resubmit_exchange,
-            exchange_type="fanout",
-            durable=self.queue.persistent,
+        self._declare_exchange(
+            Exchange(
+                name=self.resubmit_exchange,
+                type=ExchangeType.FANOUT,
+                persistent=self.queue.persistent,
+            ),
+            thread_local=True,
         )
         self._channel.queue_bind(
             queue=self.queue.name,
@@ -186,8 +241,25 @@ class AmqpConnection(Connection, BaseModel):
             )
             return
 
+        if isinstance(forward.forward_target, Exchange):
+            self._declare_exchange(forward.forward_target)
+            self._connection.add_callback_threadsafe(
+                functools.partial(
+                    self._channel.basic_publish,
+                    exchange=forward.forward_target.name,
+                    routing_key=forward.message.attributes.topic or "",
+                    body=forward.message.data,
+                    properties=BasicProperties(
+                        headers=forward.message.attributes.headers,
+                        delivery_mode=2,  # make message persistent
+                    ),
+                )
+            )
+            return
+
         raise NotImplementedError(
-            "Forwarding to non-Queue targets is not implemented"
+            f"Forwarding to targets of type {type(forward.forward_target).__name__} "
+            "is not implemented"
         )  # pragma: no cover
 
     def get_message(self: "AmqpConnection") -> QueueMessage:

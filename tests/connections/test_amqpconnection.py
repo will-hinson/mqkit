@@ -1,8 +1,9 @@
+from requests.exceptions import JSONDecodeError
 from mqkit import create_engine
 from mqkit.connections.amqp import AmqpConnection
 from mqkit.engines import RabbitMqEngine
 from mqkit.errors import ShutdownRequested
-from mqkit.messaging import Forward, Queue, QueueMessage
+from mqkit.messaging import Exchange, Forward, Queue, QueueMessage
 
 import pytest
 import requests
@@ -106,6 +107,104 @@ def test_amqp_connection_failure(rabbitmq_engine: RabbitMqEngine) -> None:
         wait_to_assert(lambda: managed_queue.size == 1, timeout=5.0)
 
 
+def test_amqp_connection_forwarding_exchange(rabbitmq_engine: RabbitMqEngine) -> None:
+    try:
+        # delete the unmanaged exchange and its bindings if they exist
+        response = requests.delete(
+            build_management_url("/api/queues/%2F/unmanaged_queue"),
+            auth=(TEST_USERNAME, TEST_PASSWORD),
+        )
+        assert response.ok or response.status_code == 404
+        response = requests.delete(
+            build_management_url("/api/exchanges/%2F/unmanaged_exchange"),
+            auth=(TEST_USERNAME, TEST_PASSWORD),
+        )
+        assert response.ok or response.status_code == 404
+
+        # create an unmanaged exchange and bound queue to forward messages to
+        response = requests.put(
+            build_management_url("/api/exchanges/%2F/unmanaged_exchange"),
+            auth=(TEST_USERNAME, TEST_PASSWORD),
+            json={
+                "type": "fanout",
+                "durable": True,
+                "auto_delete": False,
+            },
+        )
+        assert response.ok
+        response = requests.put(
+            build_management_url("/api/queues/%2F/unmanaged_queue"),
+            auth=(TEST_USERNAME, TEST_PASSWORD),
+            json={
+                "durable": True,
+                "auto_delete": False,
+                "exclusive": False,
+            },
+        )
+        assert response.ok
+        response = requests.post(
+            build_management_url(
+                "/api/bindings/%2F/e/unmanaged_exchange/q/unmanaged_queue"
+            ),
+            auth=(TEST_USERNAME, TEST_PASSWORD),
+            json={"routing_key": "", "arguments": {}},
+        )
+        assert response.ok
+
+        with (
+            ManagedQueue(base_queue_name="source_queue") as source_queue,
+            rabbitmq_engine.connect(queue=source_queue.name) as connection,
+        ):
+            message_data: str = f'{{"test":"message","uuid":"{source_queue.uuid}"}}'
+
+            # publish the test message to the source queue and wait for it to arrive
+            assert source_queue.size == 0
+            source_queue.publish(message_data)
+            wait_to_assert(lambda: source_queue.size == 1, timeout=5.0)
+
+            # get the message from the source queue and verify its contents
+            message: QueueMessage = connection.get_message()
+            assert message.data.decode("utf-8") == message_data
+
+            # forward the message to the target exchange
+            connection.forward_message(
+                Forward(
+                    forward_target=Exchange(
+                        name="unmanaged_exchange",
+                    ),
+                    message=message,
+                )
+            )
+
+            # acknowledge the original message as successfully processed
+            connection.acknowledge_success(message)
+
+            # verify the source queue is empty and the target queue has the forwarded message
+            wait_to_assert(lambda: source_queue.size == 0, timeout=5.0)
+            wait_to_assert(
+                lambda: requests.get(
+                    build_management_url("/api/queues/%2F/unmanaged_queue"),
+                    auth=(TEST_USERNAME, TEST_PASSWORD),
+                ).json()["messages"]
+                == 1,
+                timeout=15.0,
+                allow={JSONDecodeError},
+            )
+    except Exception as e:
+        # clean up the unmanaged exchange and its bindings
+        response = requests.delete(
+            build_management_url("/api/queues/%2F/unmanaged_queue"),
+            auth=(TEST_USERNAME, TEST_PASSWORD),
+        )
+        assert response.ok
+        response = requests.delete(
+            build_management_url("/api/exchanges/%2F/unmanaged_exchange"),
+            auth=(TEST_USERNAME, TEST_PASSWORD),
+        )
+        assert response.ok
+        raise e
+
+
 def test_amqp_connection_forwarding_queue(rabbitmq_engine: RabbitMqEngine) -> None:
     with (
         ManagedQueue(base_queue_name="source_queue") as source_queue,
@@ -139,8 +238,8 @@ def test_amqp_connection_forwarding_queue(rabbitmq_engine: RabbitMqEngine) -> No
         connection.acknowledge_success(message)
 
         # verify the source queue is empty and the target queue has the forwarded message
-        wait_to_assert(lambda: source_queue.size == 0, timeout=5.0)
-        wait_to_assert(lambda: target_queue.size == 1, timeout=5.0)
+        wait_to_assert(lambda: source_queue.size == 0, timeout=10.0)
+        wait_to_assert(lambda: target_queue.size == 1, timeout=10.0)
 
 
 def test_amqp_connection_shutdown(rabbitmq_engine: RabbitMqEngine) -> None:

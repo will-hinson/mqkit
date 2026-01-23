@@ -9,7 +9,7 @@ from typing import Callable, Optional, Union
 from pydantic import BaseModel
 
 from ...marshal.codecs import CodecType
-from ...messaging import Queue
+from ...messaging import Exchange, Queue
 
 
 class QueueEndpointConfig(BaseModel):
@@ -22,12 +22,12 @@ class QueueEndpointConfig(BaseModel):
     queue: Queue
     target: Callable
     codec_type: CodecType
-    forward_to: Optional[Queue] = None
+    forward_to: Optional[Union[Queue, Exchange]] = None
 
     def __init__(
         self: "QueueEndpointConfig",
         codec_type: Union[CodecType, str],
-        forward_to: Optional[Union[str, Queue]] = None,
+        forward_to: Optional[Union[str, Queue, Exchange]] = None,
         **data,
     ) -> None:  # pragma: no cover
         if isinstance(codec_type, str):

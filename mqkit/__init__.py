@@ -8,6 +8,7 @@ __all__ = [
     "App",
     "consume",
     "create_engine",
+    "Exchange",
     "NoRetry",
     "Queue",
     #
@@ -39,5 +40,6 @@ del _consume
 
 App = apps.App
 create_engine = engines.create_engine
+Exchange = messaging.Exchange
 NoRetry = errors.NoRetry
 Queue = messaging.Queue

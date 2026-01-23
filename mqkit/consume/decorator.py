@@ -16,7 +16,7 @@ from ..engines import create_engine, Engine
 from ..endpoints import EndpointFactory
 from ..endpoints.config import QueueEndpointConfig
 from ..marshal.codecs import CodecType
-from ..messaging import Queue
+from ..messaging import Exchange, Queue
 from ..workers.threaded import ThreadWorker
 
 
@@ -75,7 +75,7 @@ def consume(
     engine: Optional[Engine] = None,
     logger: Optional[Logger] = None,
     codec: Optional[CodecType | str] = None,
-    forward_to: Optional[Union[str, Queue]] = None,
+    forward_to: Optional[Union[str, Queue, Exchange]] = None,
     persistent: bool = True,
     auto_delete: bool = False,
 ) -> Callable[[Callable], NoReturn]:

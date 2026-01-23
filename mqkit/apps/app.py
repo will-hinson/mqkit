@@ -14,7 +14,7 @@ from ..engines import Engine
 from ..errors import FunctionTypeError
 from ..events import AppEventType
 from ..marshal.codecs import CodecType
-from ..messaging import Queue
+from ..messaging import Exchange, Queue
 from ..workers import Coordinator
 from ..workers.threaded import ThreadCoordinator
 
@@ -149,7 +149,7 @@ class App:
         name: str,
         *,
         codec: Optional[CodecType | str] = None,
-        forward_to: Optional[Union[str, Queue]] = None,
+        forward_to: Optional[Union[str, Queue, Exchange]] = None,
         persistent: bool = True,
         auto_delete: bool = False,
     ) -> Callable[[Callable], QueueEndpoint]:

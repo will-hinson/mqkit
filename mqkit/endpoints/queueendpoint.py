@@ -10,7 +10,7 @@ from typing import Optional, override
 from .config import QueueEndpointConfig
 from .endpoint import Endpoint
 from ..errors import NoForwardTargetError
-from ..messaging import Attributes, Forward, Queue, QueueMessage
+from ..messaging import Attributes, Exchange, Forward, Queue, QueueMessage
 
 
 class QueueEndpoint(Endpoint):
@@ -37,7 +37,7 @@ class QueueEndpoint(Endpoint):
     def _forward_result(self: "QueueEndpoint", data: bytes) -> Optional[Forward]:
         assert self._config.forward_to is not None
 
-        if isinstance(self._config.forward_to, Queue):
+        if isinstance(self._config.forward_to, (Queue, Exchange)):
             return Forward(
                 forward_target=self._config.forward_to,
                 message=QueueMessage(
@@ -55,7 +55,8 @@ class QueueEndpoint(Endpoint):
             )
 
         raise NotImplementedError(
-            "Forwarding to non-Queue targets is not implemented"
+            f"Forwarding to targets of type {type(self._config.forward_to).__name__} "
+            "is not implemented"
         )  # pragma: no cover
 
     def handle_message(
