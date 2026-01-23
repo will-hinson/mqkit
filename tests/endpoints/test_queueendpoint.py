@@ -79,7 +79,9 @@ def test_queue_endpoint_with_forward_queue() -> None:
             ),
             target=target,
             codec_type="json",
-            forward_to="response-queue",
+            forward_to=Queue(
+                name="response-queue",
+            ),
         )
     )
 
