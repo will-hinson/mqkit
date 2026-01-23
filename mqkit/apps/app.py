@@ -146,6 +146,7 @@ class App:
         # pylint: disable=too-many-arguments,too-many-positional-arguments
         self: "App",
         name: str,
+        *,
         codec: Optional[CodecType | str] = None,
         forward_to: Optional[str] = None,
         persistent: bool = True,
