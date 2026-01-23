@@ -18,11 +18,19 @@ from ..marshal import (
     Serializer,
     TypelessSerializer,
 )
-from ..marshal.codecs import Codec, CodecType, JsonCodec, MessagePackCodec, YamlCodec
+from ..marshal.codecs import (
+    Codec,
+    CodecType,
+    JsonCodec,
+    MessagePackCodec,
+    RawCodec,
+    YamlCodec,
+)
 
 _codec_type_to_class: Dict[CodecType, Type[Codec]] = {
     CodecType.JSON: JsonCodec,
     CodecType.MESSAGEPACK: MessagePackCodec,
+    CodecType.RAW: RawCodec,
     CodecType.YAML: YamlCodec,
 }
 

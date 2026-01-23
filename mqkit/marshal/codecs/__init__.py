@@ -9,6 +9,7 @@ __all__ = [
     "CodecType",
     "JsonCodec",
     "MessagePackCodec",
+    "RawCodec",
     "YamlCodec",
 ]
 
@@ -16,4 +17,5 @@ from .codec import Codec
 from .codectype import CodecType
 from .jsoncodec import JsonCodec
 from .messagepackcodec import MessagePackCodec
+from .rawcodec import RawCodec
 from .yamlcodec import YamlCodec
