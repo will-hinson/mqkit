@@ -17,6 +17,7 @@ __all__ = [
     "errors",
     "events",
     "marshal",
+    "messaging",
     "workers",
 ]
 
@@ -27,6 +28,7 @@ from . import engines
 from . import errors
 from . import events
 from . import marshal
+from . import messaging
 from . import workers
 
 from . import consume as _consume

@@ -2,7 +2,7 @@ from mqkit import create_engine
 from mqkit.connections.amqp import AmqpConnection
 from mqkit.engines import RabbitMqEngine
 from mqkit.errors import ShutdownRequested
-from mqkit.marshal import Forward, Queue, QueueMessage
+from mqkit.messaging import Forward, Queue, QueueMessage
 
 import pytest
 import requests

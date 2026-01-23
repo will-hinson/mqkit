@@ -13,8 +13,8 @@ from ..endpoints.config import QueueEndpointConfig
 from ..engines import Engine
 from ..errors import FunctionTypeError
 from ..events import AppEventType
-from ..marshal import Queue
 from ..marshal.codecs import CodecType
+from ..messaging import Queue
 from ..workers import Coordinator
 from ..workers.threaded import ThreadCoordinator
 

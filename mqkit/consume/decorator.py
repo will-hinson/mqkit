@@ -15,8 +15,8 @@ from typing import Callable, NoReturn, Optional
 from ..engines import create_engine, Engine
 from ..endpoints import EndpointFactory
 from ..endpoints.config import QueueEndpointConfig
-from ..marshal import Queue
 from ..marshal.codecs import CodecType
+from ..messaging import Queue
 from ..workers.threaded import ThreadWorker
 
 

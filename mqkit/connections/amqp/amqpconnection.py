@@ -23,7 +23,7 @@ from .amqpmessage import AmqpMessage
 from .amqpsentinel import AmqpSentinel
 from ..connection import Connection
 from ...errors import ShutdownRequested
-from ...marshal import Attributes, Forward, Queue, QueueMessage
+from ...messaging import Attributes, Forward, Queue, QueueMessage
 
 
 class AmqpConnection(Connection, BaseModel):

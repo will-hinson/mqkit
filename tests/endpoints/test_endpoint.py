@@ -5,9 +5,9 @@ from pydantic import BaseModel
 from mqkit.endpoints import Endpoint, QueueEndpoint
 from mqkit.endpoints.config import QueueEndpointConfig
 from mqkit.errors import FunctionSignatureError
-from mqkit.marshal import Queue
 from mqkit.marshal import ReturnTypeSerializer, TypelessSerializer
 from mqkit.marshal.codecs import CodecType
+from mqkit.messaging import Queue
 
 import pytest
 

@@ -12,8 +12,6 @@ from typing import Any, Callable, Dict, NoReturn, Optional, Type
 
 from ..errors import FunctionSignatureError
 from ..marshal import (
-    Forward,
-    QueueMessage,
     ReturnTypeSerializer,
     Serializer,
     TypelessSerializer,
@@ -26,6 +24,7 @@ from ..marshal.codecs import (
     RawCodec,
     YamlCodec,
 )
+from ..messaging import Forward, QueueMessage
 
 _codec_type_to_class: Dict[CodecType, Type[Codec]] = {
     CodecType.JSON: JsonCodec,

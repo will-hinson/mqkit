@@ -9,7 +9,7 @@ from typing import Callable, Optional, Union
 from pydantic import BaseModel
 
 from ...marshal.codecs import CodecType
-from ...marshal import Queue
+from ...messaging import Queue
 
 
 class QueueEndpointConfig(BaseModel):

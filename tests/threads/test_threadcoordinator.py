@@ -6,7 +6,7 @@ from mqkit.endpoints.config import QueueEndpointConfig
 from mqkit.engines import create_engine
 from mqkit.engines.rabbitmq import RabbitMqEngine
 from mqkit.errors import FunctionTypeError
-from mqkit.marshal import Queue
+from mqkit.messaging import Queue
 from mqkit.workers.threaded import ThreadCoordinator
 
 import pytest

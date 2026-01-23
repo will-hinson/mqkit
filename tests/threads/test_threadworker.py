@@ -4,7 +4,7 @@ from mqkit import create_engine, NoRetry
 from mqkit.endpoints import QueueEndpoint
 from mqkit.endpoints.config import QueueEndpointConfig
 from mqkit.engines.rabbitmq import RabbitMqEngine
-from mqkit.marshal import Queue
+from mqkit.messaging import Queue
 from mqkit.workers.threaded import ThreadWorker
 
 import pytest

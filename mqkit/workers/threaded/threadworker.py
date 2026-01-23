@@ -13,9 +13,9 @@ from ...connections import Connection
 from ...endpoints import Endpoint
 from ...engines import Engine
 from ...errors import NoRetry, ShutdownRequested
-from ..worker import Worker
-from ...marshal import Forward, QueueMessage
+from ...messaging import Forward, QueueMessage
 from .monotoniccounter import MonotonicCounter
+from ..worker import Worker
 
 
 class ThreadWorker(Worker, Thread):

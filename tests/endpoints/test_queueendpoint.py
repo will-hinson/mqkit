@@ -3,7 +3,7 @@ from typing import Optional
 from mqkit.endpoints import QueueEndpoint
 from mqkit.endpoints.config import QueueEndpointConfig
 from mqkit.errors import NoForwardTargetError
-from mqkit.marshal import Attributes, Forward, Queue, QueueMessage
+from mqkit.messaging import Attributes, Forward, Queue, QueueMessage
 
 import pytest
 

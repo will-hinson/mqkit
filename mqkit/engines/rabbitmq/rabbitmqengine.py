@@ -12,7 +12,7 @@ from yarl import URL
 from ...connections.amqp import AmqpConnection
 from ...credentials import PlainCredentials
 from ..engine import Engine
-from ...marshal import Queue
+from ...messaging import Queue
 
 
 class RabbitMqEngine(Engine):

@@ -10,7 +10,7 @@ from typing import Optional, override
 from .config import QueueEndpointConfig
 from .endpoint import Endpoint
 from ..errors import NoForwardTargetError
-from ..marshal import Attributes, Forward, Queue, QueueMessage
+from ..messaging import Attributes, Forward, Queue, QueueMessage
 
 
 class QueueEndpoint(Endpoint):
