@@ -7,7 +7,7 @@ the RabbitMqEngine class
 """
 
 import functools
-from queue import Queue
+from queue import Queue as ProcessQueue
 import threading
 from typing import ClassVar, Optional, Set
 
@@ -23,7 +23,7 @@ from .amqpmessage import AmqpMessage
 from .amqpsentinel import AmqpSentinel
 from ..connection import Connection
 from ...errors import ShutdownRequested
-from ...marshal import Attributes, Forward, QueueMessage
+from ...marshal import Attributes, Forward, Queue, QueueMessage
 
 
 class AmqpConnection(Connection, BaseModel):
@@ -48,7 +48,7 @@ class AmqpConnection(Connection, BaseModel):
     _connection: Optional[PikaBlockingConnection] = PrivateAttr(default=None)
     _consume_thread: Optional[AmqpConsumeThread] = PrivateAttr(default=None)
     _declared_queues: Set[str] = PrivateAttr(default_factory=set)
-    _message_queue: Queue = PrivateAttr(default_factory=Queue)
+    _message_queue: ProcessQueue = PrivateAttr(default_factory=ProcessQueue)
 
     model_config: ClassVar[ConfigDict] = ConfigDict(arbitrary_types_allowed=True)
 
@@ -80,17 +80,14 @@ class AmqpConnection(Connection, BaseModel):
 
     def _declare_queue(
         self: "AmqpConnection",
-        queue_name: str,
-        *,
-        durable: bool,
-        auto_delete: bool,
+        queue: Queue,
         thread_local: bool = False,
     ) -> None:
         if self._connection is None or self._channel is None:  # pragma: no cover
             raise RuntimeError("AMQP channel is not established")
 
         # if we've already declared this queue, skip it
-        if queue_name in self._declared_queues:  # pragma: no cover
+        if queue.name in self._declared_queues:  # pragma: no cover
             return
 
         done_event: threading.Event = threading.Event()
@@ -100,9 +97,9 @@ class AmqpConnection(Connection, BaseModel):
                 raise RuntimeError("AMQP channel is not established")
 
             self._channel.queue_declare(  # pyright: ignore[reportOptionalMemberAccess]
-                queue=queue_name,
-                durable=durable,
-                auto_delete=auto_delete,
+                queue=queue.name,
+                durable=queue.persistent,
+                auto_delete=queue.auto_delete,
             )
             done_event.set()
 
@@ -112,7 +109,7 @@ class AmqpConnection(Connection, BaseModel):
         else:
             declare()
 
-        self._declared_queues.add(queue_name)
+        self._declared_queues.add(queue.name)
 
     def _enqueue_message(
         self: "AmqpConnection",
@@ -136,10 +133,12 @@ class AmqpConnection(Connection, BaseModel):
         # declare the queue as durable if needed and set prefetch count to 1
         self._channel = self._connection.channel()
         self._declare_queue(
-            queue_name=self.queue,
-            durable=self.persistent,
+            Queue(
+                name=self.queue,
+                persistent=self.persistent,
+                auto_delete=self.auto_delete,
+            ),
             thread_local=True,
-            auto_delete=self.auto_delete,
         )
         self._channel.basic_qos(prefetch_count=1)
         self._channel.basic_consume(
@@ -175,19 +174,15 @@ class AmqpConnection(Connection, BaseModel):
         if self._connection is None or self._channel is None:
             raise RuntimeError("AMQP channel is not established")
 
-        if isinstance(forward.forward_target, str):
+        if isinstance(forward.forward_target, Queue):
             # NOTE: support forward target durability options later. we can maybe infer
             # from other queue definitions
-            self._declare_queue(
-                queue_name=forward.forward_target,
-                durable=True,
-                auto_delete=False,
-            )
+            self._declare_queue(forward.forward_target)
             self._connection.add_callback_threadsafe(
                 functools.partial(
                     self._channel.basic_publish,
                     exchange="",
-                    routing_key=forward.forward_target,
+                    routing_key=forward.forward_target.name,
                     body=forward.message.data,
                     properties=BasicProperties(
                         headers=forward.message.attributes.headers,
@@ -198,7 +193,7 @@ class AmqpConnection(Connection, BaseModel):
             return
 
         raise NotImplementedError(
-            "Forwarding to non-str targets is not implemented"
+            "Forwarding to non-Queue targets is not implemented"
         )  # pragma: no cover
 
     def get_message(self: "AmqpConnection") -> QueueMessage:

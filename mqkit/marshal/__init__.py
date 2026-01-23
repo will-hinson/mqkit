@@ -8,6 +8,7 @@ __all__ = [
     "Attributes",
     "codecs",
     "Forward",
+    "Queue",
     "QueueMessage",
     "ReturnTypeSerializer",
     "Serializer",
@@ -18,6 +19,7 @@ from . import codecs
 
 from .attributes import Attributes
 from .forward import Forward
+from .queue import Queue
 from .queuemessage import QueueMessage
 from .returntypeserializer import ReturnTypeSerializer
 from .serializer import Serializer

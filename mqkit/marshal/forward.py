@@ -6,6 +6,7 @@ A module defining the Forward data model for message forwarding.
 
 from pydantic import BaseModel
 
+from .queue import Queue
 from .queuemessage import QueueMessage
 
 
@@ -17,5 +18,5 @@ class Forward(BaseModel):
     queue and the message to be forwarded.
     """
 
-    forward_target: str
+    forward_target: Queue
     message: QueueMessage
