@@ -35,14 +35,12 @@ class AmqpConnection(Connection, BaseModel):
     retrieving messages from the queue
     """
 
-    auto_delete: bool
     host: str
     port: int
     vhost: str
     credentials: PlainCredentials
-    queue: str
+    queue: Queue
     use_ssl: bool = False
-    persistent: bool
 
     _channel: Optional[BlockingChannel] = PrivateAttr(default=None)
     _connection: Optional[PikaBlockingConnection] = PrivateAttr(default=None)
@@ -133,28 +131,24 @@ class AmqpConnection(Connection, BaseModel):
         # declare the queue as durable if needed and set prefetch count to 1
         self._channel = self._connection.channel()
         self._declare_queue(
-            Queue(
-                name=self.queue,
-                persistent=self.persistent,
-                auto_delete=self.auto_delete,
-            ),
+            self.queue,
             thread_local=True,
         )
         self._channel.basic_qos(prefetch_count=1)
         self._channel.basic_consume(
             on_message_callback=self._enqueue_message,
-            queue=self.queue,
+            queue=self.queue.name,
             auto_ack=False,
         )
 
         # declare a default resubmit exchange for failed messages
         self._channel.exchange_declare(
             exchange=self.resubmit_exchange,
-            exchange_type="direct",
-            durable=self.persistent,
+            exchange_type="fanout",
+            durable=self.queue.persistent,
         )
         self._channel.queue_bind(
-            queue=self.queue,
+            queue=self.queue.name,
             exchange=self.resubmit_exchange,
         )
 
@@ -271,7 +265,7 @@ class AmqpConnection(Connection, BaseModel):
             str: The name of the resubmit exchange.
         """
 
-        return f"mqkit.resubmit.{slugify(self.queue, separator='_')}"
+        return f"mqkit.resubmit.{slugify(self.queue.name, separator='_')}"
 
     def _start_consuming(self: "AmqpConnection") -> None:
         if self._channel is None:

@@ -4,6 +4,7 @@ from mqkit import create_engine, NoRetry
 from mqkit.endpoints import QueueEndpoint
 from mqkit.endpoints.config import QueueEndpointConfig
 from mqkit.engines.rabbitmq import RabbitMqEngine
+from mqkit.marshal import Queue
 from mqkit.workers.threaded import ThreadWorker
 
 import pytest
@@ -39,7 +40,9 @@ def test_threadworker_no_forwarding(rabbitmq_engine: RabbitMqEngine) -> None:
         worker: ThreadWorker = ThreadWorker(
             QueueEndpoint(
                 QueueEndpointConfig(
-                    queue_name=managed_queue.name,
+                    queue=Queue(
+                        name=managed_queue.name,
+                    ),
                     target=target,
                     codec_type="json",
                 )
@@ -82,7 +85,9 @@ def test_threadworker_no_retry(rabbitmq_engine: RabbitMqEngine) -> None:
         worker: ThreadWorker = ThreadWorker(
             QueueEndpoint(
                 QueueEndpointConfig(
-                    queue_name=managed_queue.name,
+                    queue=Queue(
+                        name=managed_queue.name,
+                    ),
                     target=target,
                     codec_type="json",
                 )
@@ -127,7 +132,9 @@ def test_threadworker_with_queue_forwarding(rabbitmq_engine: RabbitMqEngine) -> 
         worker: ThreadWorker = ThreadWorker(
             QueueEndpoint(
                 QueueEndpointConfig(
-                    queue_name=source_queue.name,
+                    queue=Queue(
+                        name=source_queue.name,
+                    ),
                     target=target,
                     codec_type="json",
                     forward_to=forwarded_queue.name,

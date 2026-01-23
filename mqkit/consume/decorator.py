@@ -15,6 +15,7 @@ from typing import Callable, NoReturn, Optional
 from ..engines import create_engine, Engine
 from ..endpoints import EndpointFactory
 from ..endpoints.config import QueueEndpointConfig
+from ..marshal import Queue
 from ..marshal.codecs import CodecType
 from ..workers.threaded import ThreadWorker
 
@@ -31,7 +32,7 @@ def _consume_threaded(
     )
     try:
         worker.start()
-        logger.info("Started threaded consumer for queue '%s'", config.queue_name)
+        logger.info("Started threaded consumer for queue '%s'", config.queue.name)
         worker.join()
     except KeyboardInterrupt:  # pragma: no cover
         worker.stop("Keyboard interrupt received")
@@ -41,7 +42,7 @@ def _consume_threaded(
     if worker.error is not None:
         logger.exception(
             "Worker for queue '%s' exited with exception: %s",
-            config.queue_name,
+            config.queue.name,
             worker.error,
             exc_info=worker.error,
         )
@@ -120,12 +121,14 @@ def consume(
         # exit on KeyboardInterrupt)
         _consume_threaded(
             config=QueueEndpointConfig(
-                queue_name=name,
+                queue=Queue(
+                    name=name,
+                    persistent=persistent,
+                    auto_delete=auto_delete,
+                ),
                 target=func,
                 codec_type=codec,
                 forward_to=forward_to,
-                persistent=persistent,
-                auto_delete=auto_delete,
             ),
             engine=engine,
             logger=logger,

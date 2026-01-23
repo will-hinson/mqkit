@@ -13,6 +13,7 @@ from ..endpoints.config import QueueEndpointConfig
 from ..engines import Engine
 from ..errors import FunctionTypeError
 from ..events import AppEventType
+from ..marshal import Queue
 from ..marshal.codecs import CodecType
 from ..workers import Coordinator
 from ..workers.threaded import ThreadCoordinator
@@ -178,12 +179,14 @@ class App:
             self._endpoints.append(
                 EndpointFactory.create_queue_endpoint(
                     QueueEndpointConfig(
-                        queue_name=name,
+                        queue=Queue(
+                            name=name,
+                            persistent=persistent,
+                            auto_delete=auto_delete,
+                        ),
                         target=func,
                         codec_type=codec,
                         forward_to=forward_to,
-                        persistent=persistent,
-                        auto_delete=auto_delete,
                     )
                 )
             )

@@ -45,10 +45,10 @@ class QueueEndpoint(Endpoint):
                     attributes=Attributes(
                         headers={
                             "x-mqkit-forwarded": "true",
-                            "x-mqkit-origin-queue": self._config.queue_name,
+                            "x-mqkit-origin-queue": self._config.queue.name,
                         },
                         forwarded=True,
-                        origin_queue=self._config.queue_name,
+                        origin_queue=self._config.queue.name,
                         topic=None,
                     ),
                 ),
@@ -95,12 +95,12 @@ class QueueEndpoint(Endpoint):
     @property
     @override
     def is_auto_delete(self: "QueueEndpoint") -> bool:
-        return self._config.auto_delete
+        return self._config.queue.auto_delete
 
     @property
     @override
     def is_persistent(self: "QueueEndpoint") -> bool:
-        return self._config.persistent
+        return self._config.queue.persistent
 
     @property
     def qualname(self: "QueueEndpoint") -> str:  # pragma: no cover
@@ -108,4 +108,4 @@ class QueueEndpoint(Endpoint):
 
     @property
     def queue_name(self: "QueueEndpoint") -> str:
-        return copy(self._config.queue_name)
+        return copy(self._config.queue.name)

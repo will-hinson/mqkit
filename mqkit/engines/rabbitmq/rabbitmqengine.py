@@ -12,6 +12,7 @@ from yarl import URL
 from ...connections.amqp import AmqpConnection
 from ...credentials import PlainCredentials
 from ..engine import Engine
+from ...marshal import Queue
 
 
 class RabbitMqEngine(Engine):
@@ -41,10 +42,12 @@ class RabbitMqEngine(Engine):
             credentials=PikaPlainCredentials(
                 self.credentials.username, self.credentials.password
             ),
-            queue=queue,
+            queue=Queue(
+                name=queue,
+                persistent=persistent,
+                auto_delete=auto_delete,
+            ),
             use_ssl=self.use_amqps,
-            persistent=persistent,
-            auto_delete=auto_delete,
         )
 
     @classmethod

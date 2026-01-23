@@ -2,7 +2,7 @@ from mqkit import create_engine
 from mqkit.connections.amqp import AmqpConnection
 from mqkit.engines import RabbitMqEngine
 from mqkit.errors import ShutdownRequested
-from mqkit.marshal import Forward, QueueMessage
+from mqkit.marshal import Forward, Queue, QueueMessage
 
 import pytest
 import requests
@@ -128,7 +128,9 @@ def test_amqp_connection_forwarding_queue(rabbitmq_engine: RabbitMqEngine) -> No
         # forward the message to the target queue
         connection.forward_message(
             forward=Forward(
-                forward_target=target_queue.name,
+                forward_target=Queue(
+                    name=target_queue.name,
+                ),
                 message=message,
             )
         )

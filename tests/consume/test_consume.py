@@ -133,7 +133,7 @@ def test_consume_decorator_blocks_safely(mocker) -> None:
     # inspect the QueueEndpointConfig passed
     config_arg = mock_threaded.call_args[1]["config"]
     assert isinstance(config_arg, QueueEndpointConfig)
-    assert config_arg.queue_name == "test-queue"
+    assert config_arg.queue.name == "test-queue"
     assert config_arg.target == handler
     assert config_arg.codec_type == CodecType.JSON
 

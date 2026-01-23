@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from mqkit.endpoints import Endpoint, QueueEndpoint
 from mqkit.endpoints.config import QueueEndpointConfig
 from mqkit.errors import FunctionSignatureError
+from mqkit.marshal import Queue
 from mqkit.marshal import ReturnTypeSerializer, TypelessSerializer
 from mqkit.marshal.codecs import CodecType
 
@@ -57,7 +58,9 @@ def test_endpoint_concrete_properties() -> None:
 def test_endpoint_cannot_call() -> None:
     endpoint = QueueEndpoint(
         QueueEndpointConfig(
-            queue_name="test",
+            queue=Queue(
+                name="test",
+            ),
             target=lambda a, b: None,
             codec_type=CodecType.JSON,
         )
@@ -71,7 +74,9 @@ def test_endpoint_bad_signature() -> None:
     with pytest.raises(FunctionSignatureError):
         QueueEndpoint(
             QueueEndpointConfig(
-                queue_name="test",
+                queue=Queue(
+                    name="test",
+                ),
                 target=lambda a: None,
                 codec_type=CodecType.JSON,
             )
@@ -84,7 +89,9 @@ def test_endpoint_type_detection() -> None:
 
     endpoint = QueueEndpoint(
         QueueEndpointConfig(
-            queue_name="test",
+            queue=Queue(
+                name="test",
+            ),
             target=typeless_handler,
             codec_type=CodecType.JSON,
         )
@@ -120,7 +127,9 @@ def test_endpoint_type_detection() -> None:
     ]:
         endpoint = QueueEndpoint(
             QueueEndpointConfig(
-                queue_name="test",
+                queue=Queue(
+                    name="test",
+                ),
                 target=return_type_handler,
                 codec_type=CodecType.JSON,
             )

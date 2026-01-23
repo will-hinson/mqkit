@@ -19,12 +19,10 @@ class QueueEndpointConfig(BaseModel):
     Model for configuring a queue endpoint.
     """
 
-    queue_name: str
+    queue: Queue
     target: Callable
     codec_type: CodecType
     forward_to: Optional[Queue] = None
-    persistent: bool = True
-    auto_delete: bool = False
 
     def __init__(
         self: "QueueEndpointConfig",
