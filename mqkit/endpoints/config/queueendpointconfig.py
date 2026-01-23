@@ -35,5 +35,7 @@ class QueueEndpointConfig(BaseModel):
         if forward_to is not None:
             if isinstance(forward_to, str):
                 data["forward_to"] = Queue(name=forward_to)
+            else:
+                data["forward_to"] = forward_to
 
         super().__init__(**data)

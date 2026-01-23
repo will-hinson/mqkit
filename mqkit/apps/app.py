@@ -5,7 +5,7 @@ Contains the definition of the App class for building message queue applications
 """
 
 import asyncio
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Dict, List, Optional, Union
 
 from .concurrencymode import ConcurrencyMode
 from ..endpoints import Endpoint, EndpointFactory, QueueEndpoint
@@ -149,7 +149,7 @@ class App:
         name: str,
         *,
         codec: Optional[CodecType | str] = None,
-        forward_to: Optional[str] = None,
+        forward_to: Optional[Union[str, Queue]] = None,
         persistent: bool = True,
         auto_delete: bool = False,
     ) -> Callable[[Callable], QueueEndpoint]:

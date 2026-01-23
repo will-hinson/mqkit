@@ -10,7 +10,7 @@ from logging import Logger
 import logging
 import os
 import sys
-from typing import Callable, NoReturn, Optional
+from typing import Callable, NoReturn, Optional, Union
 
 from ..engines import create_engine, Engine
 from ..endpoints import EndpointFactory
@@ -75,7 +75,7 @@ def consume(
     engine: Optional[Engine] = None,
     logger: Optional[Logger] = None,
     codec: Optional[CodecType | str] = None,
-    forward_to: Optional[str] = None,
+    forward_to: Optional[Union[str, Queue]] = None,
     persistent: bool = True,
     auto_delete: bool = False,
 ) -> Callable[[Callable], NoReturn]:
