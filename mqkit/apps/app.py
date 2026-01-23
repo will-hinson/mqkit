@@ -8,7 +8,8 @@ import asyncio
 from typing import Callable, Dict, List, Optional
 
 from .concurrencymode import ConcurrencyMode
-from ..endpoints import Endpoint, QueueEndpoint
+from ..endpoints import Endpoint, EndpointFactory, QueueEndpoint
+from ..endpoints.config import QueueEndpointConfig
 from ..engines import Engine
 from ..errors import FunctionTypeError
 from ..events import AppEventType
@@ -145,6 +146,7 @@ class App:
         # pylint: disable=too-many-arguments,too-many-positional-arguments
         self: "App",
         name: str,
+        *,
         codec: Optional[CodecType | str] = None,
         forward_to: Optional[str] = None,
         persistent: bool = True,
@@ -174,13 +176,15 @@ class App:
             self._assert_function_compatible(func)
 
             self._endpoints.append(
-                QueueEndpoint(
-                    queue_name=name,
-                    target=func,
-                    codec_type=codec,
-                    forward_to=forward_to,
-                    persistent=persistent,
-                    auto_delete=auto_delete,
+                EndpointFactory.create_queue_endpoint(
+                    QueueEndpointConfig(
+                        queue_name=name,
+                        target=func,
+                        codec_type=codec,
+                        forward_to=forward_to,
+                        persistent=persistent,
+                        auto_delete=auto_delete,
+                    )
                 )
             )
             return self._endpoints[-1]  # type: ignore

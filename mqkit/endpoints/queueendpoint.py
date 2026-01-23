@@ -4,12 +4,13 @@ module mqkit.endpoints.queueendpoint
 Defines the QueueEndpoint class for processing messages from a message queue.
 """
 
-from typing import Callable, Optional
+from copy import copy
+from typing import Optional, override
 
+from .config import QueueEndpointConfig
 from .endpoint import Endpoint
 from ..errors import NoForwardTargetError
 from ..marshal import Attributes, Forward, QueueMessage
-from ..marshal.codecs import CodecType
 
 
 class QueueEndpoint(Endpoint):
@@ -19,46 +20,35 @@ class QueueEndpoint(Endpoint):
     Represents an endpoint for processing messages from a message queue.
     """
 
-    auto_delete: bool
-    _forward_to: Optional[str] = None
-    persistent: bool
+    _config: QueueEndpointConfig
 
     def __init__(
         # pylint: disable=too-many-arguments,too-many-positional-arguments
         self: "QueueEndpoint",
-        queue_name: str,
-        target: Callable,
-        codec_type: CodecType | str,
-        forward_to: Optional[str] = None,
-        persistent: bool = True,
-        auto_delete: bool = False,
+        config: QueueEndpointConfig,
     ) -> None:
-        codec_type = CodecType(codec_type)
         super().__init__(
-            queue_name=queue_name,
-            target=target,
-            codec_type=codec_type,
+            target=config.target,
+            codec_type=config.codec_type,
         )
 
-        self.auto_delete = auto_delete
-        self._forward_to = forward_to
-        self.persistent = persistent
+        self._config = config
 
     def _forward_result(self: "QueueEndpoint", data: bytes) -> Optional[Forward]:
-        assert self._forward_to is not None
+        assert self._config.forward_to is not None
 
-        if isinstance(self._forward_to, str):
+        if isinstance(self._config.forward_to, str):
             return Forward(
-                forward_target=self._forward_to,
+                forward_target=self._config.forward_to,
                 message=QueueMessage(
                     data=data,
                     attributes=Attributes(
                         headers={
                             "x-mqkit-forwarded": "true",
-                            "x-mqkit-origin-queue": self._queue_name,
+                            "x-mqkit-origin-queue": self._config.queue_name,
                         },
                         forwarded=True,
-                        origin_queue=self._queue_name,
+                        origin_queue=self._config.queue_name,
                         topic=None,
                     ),
                 ),
@@ -95,7 +85,7 @@ class QueueEndpoint(Endpoint):
             return None
 
         # check if the message can actually be replied to
-        if self._forward_to is None:
+        if self._config.forward_to is None:
             raise NoForwardTargetError(
                 "Cannot forward returned message result because no forward_to queue was specified"
             )
@@ -103,5 +93,19 @@ class QueueEndpoint(Endpoint):
         return self._forward_result(result)
 
     @property
+    @override
+    def is_auto_delete(self: "QueueEndpoint") -> bool:
+        return self._config.auto_delete
+
+    @property
+    @override
+    def is_persistent(self: "QueueEndpoint") -> bool:
+        return self._config.persistent
+
+    @property
     def qualname(self: "QueueEndpoint") -> str:  # pragma: no cover
-        return self._queue_name
+        return self.queue_name
+
+    @property
+    def queue_name(self: "QueueEndpoint") -> str:
+        return copy(self._config.queue_name)

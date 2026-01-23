@@ -6,7 +6,6 @@ Abstract base class for message queue endpoints.
 
 from abc import ABCMeta, abstractmethod
 import asyncio
-from copy import copy
 import functools
 import inspect
 from typing import Any, Callable, Dict, NoReturn, Optional, Type
@@ -36,14 +35,10 @@ class Endpoint(metaclass=ABCMeta):
     """
 
     _is_async: bool = False
-    _queue_name: str
     _target: Callable[..., Any]
 
-    def __init__(
-        self: "Endpoint", queue_name: str, target: Callable, codec_type: CodecType
-    ) -> None:
+    def __init__(self: "Endpoint", target: Callable, codec_type: CodecType) -> None:
         self._is_async = asyncio.iscoroutinefunction(target)
-        self._queue_name = queue_name
         self._target = self._wrap_with_decode(
             target,
             codec_type=codec_type,
@@ -79,6 +74,32 @@ class Endpoint(metaclass=ABCMeta):
         return self._is_async
 
     @property
+    def is_auto_delete(self: "Endpoint") -> bool:
+        """
+        Property that indicates whether the endpoint is auto-delete.
+
+        Returns:
+            bool: True if the endpoint is auto-delete, False otherwise.
+        """
+
+        raise NotImplementedError(
+            f"Endpoint of type {type(self).__name__} does not implement is_auto_delete()"
+        )
+
+    @property
+    def is_persistent(self: "Endpoint") -> bool:
+        """
+        Property that indicates whether the endpoint is persistent.
+
+        Returns:
+            bool: True if the endpoint is persistent, False otherwise.
+        """
+
+        raise NotImplementedError(
+            f"Endpoint of type {type(self).__name__} does not implement is_persistent()"
+        )
+
+    @property
     @abstractmethod
     def qualname(self: "Endpoint") -> str:  # pragma: no cover
         """
@@ -91,6 +112,7 @@ class Endpoint(metaclass=ABCMeta):
         raise NotImplementedError()
 
     @property
+    @abstractmethod
     def queue_name(self: "Endpoint") -> str:
         """
         Property that returns the name of the queue associated with this endpoint.
@@ -99,7 +121,7 @@ class Endpoint(metaclass=ABCMeta):
             str: The name of the queue.
         """
 
-        return copy(self._queue_name)
+        raise NotImplementedError()  # pragma: no cover
 
     @property
     def target(self: "Endpoint") -> Callable[..., Any]:
