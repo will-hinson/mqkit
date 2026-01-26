@@ -10,7 +10,7 @@ from typing import Optional, override
 from .config import QueueEndpointConfig
 from .endpoint import Endpoint
 from ..errors import NoForwardTargetError
-from ..messaging import Attributes, Exchange, Forward, Queue, QueueMessage
+from ..messaging import Attributes, Exchange, Forward, Queue, QueueMessage, Response
 
 
 class QueueEndpoint(Endpoint):
@@ -34,19 +34,22 @@ class QueueEndpoint(Endpoint):
 
         self._config = config
 
-    def _forward_result(self: "QueueEndpoint", data: bytes) -> Optional[Forward]:
+    def _forward_result(self: "QueueEndpoint", response: Response) -> Optional[Forward]:
         assert self._config.forward_to is not None
+
+        if not response.has_data:  # pragma: no cover
+            raise ValueError("Cannot forward response with no data")
 
         if isinstance(self._config.forward_to, (Queue, Exchange)):
             return Forward(
                 forward_target=self._config.forward_to,
                 message=QueueMessage(
-                    data=data,
+                    data=response.data,
                     attributes=Attributes(
-                        headers={
-                            "x-mqkit-forwarded": "true",
-                            "x-mqkit-origin-queue": self._config.queue.name,
-                        },
+                        headers=self.make_forward_headers(
+                            response,
+                            origin_queue=self._config.queue.name,
+                        ),
                         forwarded=True,
                         origin_queue=self._config.queue.name,
                         topic=None,
@@ -77,13 +80,18 @@ class QueueEndpoint(Endpoint):
                 queue was specified.
         """
 
-        result: Optional[bytes] = self.target(
+        result: Optional[Response] = self.target(
             message=message.data,
             attributes=message.attributes,
         )
 
         if result is None:
             return None
+        if not isinstance(result, Response):  # pragma: no cover
+            raise TypeError(
+                f"Target function returned invalid type {type(result).__name__}; "
+                "expected Response or None"
+            )
 
         # check if the message can actually be replied to
         if self._config.forward_to is None:
