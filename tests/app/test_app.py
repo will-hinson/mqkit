@@ -7,6 +7,7 @@ from mqkit.errors import FunctionTypeError
 import pytest
 
 from ..common import (
+    ASSERT_TIMEOUT,
     TEST_HOST,
     TEST_PASSWORD,
     TEST_PORT,
@@ -79,7 +80,7 @@ def test_app_register_queue(rabbitmq_engine: RabbitMqEngine) -> None:
 
         app_thread: Thread = Thread(target=app.run, args=(rabbitmq_engine,))
         app_thread.start()
-        wait_to_assert(lambda: managed_queue.exists, timeout=5.0)
+        wait_to_assert(lambda: managed_queue.exists, timeout=ASSERT_TIMEOUT)
         app.stop()
 
 

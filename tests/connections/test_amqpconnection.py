@@ -9,6 +9,7 @@ import pytest
 import requests
 
 from ..common import (
+    ASSERT_TIMEOUT,
     build_management_url,
     ManagedQueue,
     TEST_PASSWORD,
@@ -71,7 +72,7 @@ def test_amqp_connection_success(rabbitmq_engine: RabbitMqEngine) -> None:
         # publish the test message and wait for it to arrive
         assert managed_queue.size == 0
         managed_queue.publish(message_data)
-        wait_to_assert(lambda: managed_queue.size == 1, timeout=5.0)
+        wait_to_assert(lambda: managed_queue.size == 1, timeout=ASSERT_TIMEOUT)
 
         # get the message and verify its contents
         message: QueueMessage = connection.get_message()
@@ -81,7 +82,7 @@ def test_amqp_connection_success(rabbitmq_engine: RabbitMqEngine) -> None:
 
         # acknowledge the message as successfully processed and verify the queue is empty
         connection.acknowledge_success(message)
-        wait_to_assert(lambda: managed_queue.size == 0, timeout=5.0)
+        wait_to_assert(lambda: managed_queue.size == 0, timeout=ASSERT_TIMEOUT)
 
 
 def test_amqp_connection_failure(rabbitmq_engine: RabbitMqEngine) -> None:
@@ -94,7 +95,7 @@ def test_amqp_connection_failure(rabbitmq_engine: RabbitMqEngine) -> None:
         # publish the test message and wait for it to arrive
         assert managed_queue.size == 0
         managed_queue.publish(message_data)
-        wait_to_assert(lambda: managed_queue.size == 1, timeout=5.0)
+        wait_to_assert(lambda: managed_queue.size == 1, timeout=ASSERT_TIMEOUT)
 
         # get the message and verify its contents
         message: QueueMessage = connection.get_message()
@@ -104,7 +105,7 @@ def test_amqp_connection_failure(rabbitmq_engine: RabbitMqEngine) -> None:
 
         # acknowledge the message as failed. by default, it won't be requeued
         connection.acknowledge_failure(message)
-        wait_to_assert(lambda: managed_queue.size == 1, timeout=5.0)
+        wait_to_assert(lambda: managed_queue.size == 1, timeout=ASSERT_TIMEOUT)
 
 
 def test_amqp_connection_forwarding_exchange(rabbitmq_engine: RabbitMqEngine) -> None:
@@ -160,7 +161,7 @@ def test_amqp_connection_forwarding_exchange(rabbitmq_engine: RabbitMqEngine) ->
             # publish the test message to the source queue and wait for it to arrive
             assert source_queue.size == 0
             source_queue.publish(message_data)
-            wait_to_assert(lambda: source_queue.size == 1, timeout=5.0)
+            wait_to_assert(lambda: source_queue.size == 1, timeout=ASSERT_TIMEOUT)
 
             # get the message from the source queue and verify its contents
             message: QueueMessage = connection.get_message()
@@ -180,14 +181,14 @@ def test_amqp_connection_forwarding_exchange(rabbitmq_engine: RabbitMqEngine) ->
             connection.acknowledge_success(message)
 
             # verify the source queue is empty and the target queue has the forwarded message
-            wait_to_assert(lambda: source_queue.size == 0, timeout=5.0)
+            wait_to_assert(lambda: source_queue.size == 0, timeout=ASSERT_TIMEOUT)
             wait_to_assert(
                 lambda: requests.get(
                     build_management_url("/api/queues/%2F/unmanaged_queue"),
                     auth=(TEST_USERNAME, TEST_PASSWORD),
                 ).json()["messages"]
                 == 1,
-                timeout=15.0,
+                timeout=ASSERT_TIMEOUT,
                 allow={JSONDecodeError},
             )
     except Exception as e:
@@ -218,7 +219,7 @@ def test_amqp_connection_forwarding_queue(rabbitmq_engine: RabbitMqEngine) -> No
         assert source_queue.size == 0
         assert target_queue.size == 0
         source_queue.publish(message_data)
-        wait_to_assert(lambda: source_queue.size == 1, timeout=5.0)
+        wait_to_assert(lambda: source_queue.size == 1, timeout=ASSERT_TIMEOUT)
 
         # get the message from the source queue and verify its contents
         message: QueueMessage = connection.get_message()
@@ -238,8 +239,8 @@ def test_amqp_connection_forwarding_queue(rabbitmq_engine: RabbitMqEngine) -> No
         connection.acknowledge_success(message)
 
         # verify the source queue is empty and the target queue has the forwarded message
-        wait_to_assert(lambda: source_queue.size == 0, timeout=10.0)
-        wait_to_assert(lambda: target_queue.size == 1, timeout=10.0)
+        wait_to_assert(lambda: source_queue.size == 0, timeout=ASSERT_TIMEOUT)
+        wait_to_assert(lambda: target_queue.size == 1, timeout=ASSERT_TIMEOUT)
 
 
 def test_amqp_connection_shutdown(rabbitmq_engine: RabbitMqEngine) -> None:
