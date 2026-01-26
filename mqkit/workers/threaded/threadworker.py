@@ -13,6 +13,7 @@ from ...connections import Connection
 from ...endpoints import Endpoint
 from ...engines import Engine
 from ...errors import NoRetry, ShutdownRequested
+from ...logging import root_logger_name
 from ...messaging import Forward, QueueMessage
 from .monotoniccounter import MonotonicCounter
 from ..worker import Worker
@@ -40,7 +41,9 @@ class ThreadWorker(Worker, Thread):
         endpoint: Endpoint,
         engine: Engine,
     ) -> None:
-        Thread.__init__(self, name=f"ThreadWorker-{self._counter.next()}")
+        Thread.__init__(
+            self, name=f"ThreadWorker-{endpoint.qualname}-{self._counter.next()}"
+        )
         Worker.__init__(self)
 
         self._endpoint = endpoint
@@ -78,8 +81,8 @@ class ThreadWorker(Worker, Thread):
 
     def _init_logger(self: "ThreadWorker") -> None:
         self._logger = logging.getLogger(
-            name=f"{self.__class__.__module__.split('.', maxsplit=1)[0]}.{self.__class__.__name__}."
-            f"{self._endpoint.__class__.__name__}.{self._endpoint.qualname}"
+            f"{root_logger_name}.{'.'.join(self.__class__.__module__.split('.')[1:-1])}."
+            f"{self.name}"
         )
 
     def _process_messages(self: "ThreadWorker") -> None:

@@ -19,6 +19,7 @@ __all__ = [
     "engines",
     "errors",
     "events",
+    "logging",
     "marshal",
     "messaging",
     "workers",
@@ -30,6 +31,7 @@ from . import endpoints
 from . import engines
 from . import errors
 from . import events
+from . import logging
 from . import marshal
 from . import messaging
 from . import workers
