@@ -7,7 +7,7 @@ Defines the abstract base class Connection for message queue connections.
 from abc import ABCMeta, abstractmethod
 from typing import Optional, Type
 
-from ..marshal import Forward, QueueMessage
+from ..messaging import Forward, QueueMessage
 
 
 class Connection(metaclass=ABCMeta):

@@ -5,7 +5,7 @@ Contains the definition of the App class for building message queue applications
 """
 
 import asyncio
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Dict, List, Optional, Union
 
 from .concurrencymode import ConcurrencyMode
 from ..endpoints import Endpoint, EndpointFactory, QueueEndpoint
@@ -14,6 +14,7 @@ from ..engines import Engine
 from ..errors import FunctionTypeError
 from ..events import AppEventType
 from ..marshal.codecs import CodecType
+from ..messaging import Exchange, Queue
 from ..workers import Coordinator
 from ..workers.threaded import ThreadCoordinator
 
@@ -148,7 +149,7 @@ class App:
         name: str,
         *,
         codec: Optional[CodecType | str] = None,
-        forward_to: Optional[str] = None,
+        forward_to: Optional[Union[str, Queue, Exchange]] = None,
         persistent: bool = True,
         auto_delete: bool = False,
     ) -> Callable[[Callable], QueueEndpoint]:
@@ -178,12 +179,14 @@ class App:
             self._endpoints.append(
                 EndpointFactory.create_queue_endpoint(
                     QueueEndpointConfig(
-                        queue_name=name,
+                        queue=Queue(
+                            name=name,
+                            persistent=persistent,
+                            auto_delete=auto_delete,
+                        ),
                         target=func,
                         codec_type=codec,
                         forward_to=forward_to,
-                        persistent=persistent,
-                        auto_delete=auto_delete,
                     )
                 )
             )

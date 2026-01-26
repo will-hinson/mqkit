@@ -8,7 +8,9 @@ __all__ = [
     "App",
     "consume",
     "create_engine",
+    "Exchange",
     "NoRetry",
+    "Queue",
     #
     "apps",
     "credentials",
@@ -17,6 +19,7 @@ __all__ = [
     "errors",
     "events",
     "marshal",
+    "messaging",
     "workers",
 ]
 
@@ -27,6 +30,7 @@ from . import engines
 from . import errors
 from . import events
 from . import marshal
+from . import messaging
 from . import workers
 
 from . import consume as _consume
@@ -36,4 +40,6 @@ del _consume
 
 App = apps.App
 create_engine = engines.create_engine
+Exchange = messaging.Exchange
 NoRetry = errors.NoRetry
+Queue = messaging.Queue
