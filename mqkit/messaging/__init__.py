@@ -11,6 +11,7 @@ __all__ = [
     "Forward",
     "Queue",
     "QueueMessage",
+    "Response",
 ]
 
 from .attributes import Attributes
@@ -19,3 +20,4 @@ from .exchangetype import ExchangeType
 from .forward import Forward
 from .queue import Queue
 from .queuemessage import QueueMessage
+from .response import Response

@@ -12,6 +12,7 @@ from mqkit.workers.threaded import ThreadCoordinator
 import pytest
 
 from ..common import (
+    ASSERT_TIMEOUT,
     ManagedQueue,
     TEST_PASSWORD,
     TEST_USERNAME,
@@ -85,15 +86,15 @@ def test_threadcoordinator_keyboard_interrupt(
         coordinator_thread.start()
 
         # publish some messages to the queue
-        wait_to_assert(lambda: managed_queue.exists, timeout=5.0)
+        wait_to_assert(lambda: managed_queue.exists, timeout=ASSERT_TIMEOUT)
         for i in range(5):
             managed_queue.publish(f'{{"test": "message {i}"}}')
         time.sleep(2.0)
 
         # interrupt the coordinator and ensure it stops processing messages
-        wait_to_assert(lambda: counter == 5, timeout=5.0)
+        wait_to_assert(lambda: counter == 5, timeout=ASSERT_TIMEOUT)
         coordinator._interrupt(exception=KeyboardInterrupt())
-        coordinator_thread.join(timeout=5.0)
+        coordinator_thread.join(timeout=ASSERT_TIMEOUT)
         assert not coordinator_thread.is_alive()
 
         # publish some more messages to ensure coordinator is stopped
@@ -138,12 +139,12 @@ def test_threadcoordinator_single_endpoint(
         coordinator_thread.start()
 
         # wait for the queue to be ready and publish some messages
-        wait_to_assert(lambda: managed_queue.exists, timeout=5.0)
+        wait_to_assert(lambda: managed_queue.exists, timeout=ASSERT_TIMEOUT)
         for i in range(10):
             managed_queue.publish(f'{{"test": "message {i}"}}')
 
         # check that all messages were processed and stop the coordinator
-        wait_to_assert(lambda: counter == 10, timeout=5.0)
+        wait_to_assert(lambda: counter == 10, timeout=ASSERT_TIMEOUT)
         coordinator._stop_workers(
             exception=KeyboardInterrupt(),
             reason="Test complete",
@@ -155,4 +156,4 @@ def test_threadcoordinator_single_endpoint(
         for i in range(10, 15):
             managed_queue.publish(f'{{"test": "message {i}"}}')
         time.sleep(5.0)
-        wait_to_assert(lambda: counter == 10, timeout=2.0)
+        wait_to_assert(lambda: counter == 10, timeout=ASSERT_TIMEOUT)

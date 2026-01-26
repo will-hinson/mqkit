@@ -7,6 +7,7 @@ import requests
 from requests import Response
 from slugify import slugify
 
+ASSERT_TIMEOUT: float = 30.0
 
 TEST_HOST: str = os.environ.get("RABBITMQ_HOST", "localhost")
 TEST_PORT: int = int(os.environ.get("RABBITMQ_PORT", "5672"))

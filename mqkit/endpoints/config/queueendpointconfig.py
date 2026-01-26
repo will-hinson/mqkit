@@ -4,10 +4,11 @@ module mqkit.endpoints.config.queueendpointconfig
 Defines the QueueEndpointConfig model for configuring queue endpoints.
 """
 
-from typing import Callable, Optional, Union
+from typing import Optional, Union
 
 from pydantic import BaseModel
 
+from ..endpoint import EndpointCallback
 from ...marshal.codecs import CodecType
 from ...messaging import Exchange, Queue
 
@@ -20,7 +21,7 @@ class QueueEndpointConfig(BaseModel):
     """
 
     queue: Queue
-    target: Callable
+    target: EndpointCallback
     codec_type: CodecType
     forward_to: Optional[Union[Queue, Exchange]] = None
 

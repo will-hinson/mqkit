@@ -11,6 +11,7 @@ __all__ = [
     "Exchange",
     "NoRetry",
     "Queue",
+    "Response",
     #
     "apps",
     "credentials",
@@ -43,3 +44,4 @@ create_engine = engines.create_engine
 Exchange = messaging.Exchange
 NoRetry = errors.NoRetry
 Queue = messaging.Queue
+Response = messaging.Response

@@ -8,7 +8,9 @@ from abc import ABCMeta, abstractmethod
 import asyncio
 import functools
 import inspect
-from typing import Any, Callable, Dict, NoReturn, Optional, Type
+from typing import Any, Callable, Dict, NoReturn, Optional, Type, TypeAlias, Union
+
+from mqkit.messaging.attributes import Attributes
 
 from ..errors import FunctionSignatureError
 from ..marshal import (
@@ -24,7 +26,7 @@ from ..marshal.codecs import (
     RawCodec,
     YamlCodec,
 )
-from ..messaging import Forward, QueueMessage
+from ..messaging import Forward, QueueMessage, Response
 
 _codec_type_to_class: Dict[CodecType, Type[Codec]] = {
     CodecType.JSON: JsonCodec,
@@ -32,6 +34,10 @@ _codec_type_to_class: Dict[CodecType, Type[Codec]] = {
     CodecType.RAW: RawCodec,
     CodecType.YAML: YamlCodec,
 }
+
+EndpointCallback: TypeAlias = Callable[
+    [Any, Attributes], Optional[Union[Response, bytes]]
+]
 
 
 class Endpoint(metaclass=ABCMeta):
@@ -42,7 +48,7 @@ class Endpoint(metaclass=ABCMeta):
     """
 
     _is_async: bool = False
-    _target: Callable[..., Any]
+    _target: Callable[..., Optional[Response]]
 
     def __init__(self: "Endpoint", target: Callable, codec_type: CodecType) -> None:
         self._is_async = asyncio.iscoroutinefunction(target)
@@ -106,6 +112,24 @@ class Endpoint(metaclass=ABCMeta):
             f"Endpoint of type {type(self).__name__} does not implement is_persistent()"
         )
 
+    def make_forward_headers(
+        self: "Endpoint", response: Response, origin_queue: str
+    ) -> Dict[str, str]:
+        """
+        Creates headers for forwarding a response message.
+
+        Args:
+            response (Response): The response message to create headers for.
+
+        Returns:
+            Dict[str, str]: A dictionary of headers for the forwarded message.
+        """
+
+        return {
+            "x-mqkit-forwarded": "true",
+            "x-mqkit-origin-queue": origin_queue,
+        } | response.headers
+
     @property
     @abstractmethod
     def qualname(self: "Endpoint") -> str:  # pragma: no cover
@@ -131,7 +155,7 @@ class Endpoint(metaclass=ABCMeta):
         raise NotImplementedError()  # pragma: no cover
 
     @property
-    def target(self: "Endpoint") -> Callable[..., Any]:
+    def target(self: "Endpoint") -> Callable[..., Optional[Response]]:
         """
         Property that returns the target function associated with this endpoint.
 
@@ -153,7 +177,7 @@ class Endpoint(metaclass=ABCMeta):
         return _codec_type_to_class[codec_type]()
 
     def _make_serializer(
-        self: "Endpoint", func: Callable, codec_type: CodecType
+        self: "Endpoint", func: EndpointCallback, codec_type: CodecType
     ) -> Serializer:
         codec: Codec = self._make_codec(codec_type)
 
@@ -191,8 +215,10 @@ class Endpoint(metaclass=ABCMeta):
         return TypelessSerializer(function=function, codec=codec)
 
     def _wrap_with_decode(
-        self: "Endpoint", func: Callable, codec_type: CodecType
-    ) -> Callable[..., Any]:
+        self: "Endpoint",
+        func: EndpointCallback,
+        codec_type: CodecType,
+    ) -> Callable[..., Optional[Response]]:
         serializer: Serializer = self._make_serializer(
             func=func,
             codec_type=codec_type,
@@ -202,13 +228,22 @@ class Endpoint(metaclass=ABCMeta):
         def _deserialize_wrapper(
             *,
             message: bytes,
-            attributes: Dict[str, Any],
-        ) -> Any:
-            return serializer.serialize(
-                func(
-                    serializer.deserialize(message),
-                    attributes,
-                )
+            attributes: Attributes,
+        ) -> Optional[Response]:
+            # call the function and get the result. it could be a Response object, some
+            # data, or None. we want to marshal this into Response | None
+            result: Optional[Union[Response, bytes]] = func(
+                serializer.deserialize(message),
+                attributes,
             )
+            if result is None:
+                return None
+            if not isinstance(result, Response):
+                result = Response(content=result)
+
+            # serialize the content into byte data and return the Response. if the serializer
+            # returns None, Response.data will raise an error
+            result.data = serializer.serialize(result.content)
+            return result
 
         return _deserialize_wrapper
