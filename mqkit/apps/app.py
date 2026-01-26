@@ -5,6 +5,8 @@ Contains the definition of the App class for building message queue applications
 """
 
 import asyncio
+import logging
+from logging import Logger
 from typing import Callable, Dict, List, Optional, Union
 
 from .concurrencymode import ConcurrencyMode
@@ -13,6 +15,7 @@ from ..endpoints.config import QueueEndpointConfig
 from ..engines import Engine
 from ..errors import FunctionTypeError
 from ..events import AppEventType
+from ..logging import root_logger_name
 from ..marshal.codecs import CodecType
 from ..messaging import Exchange, Queue
 from ..workers import Coordinator
@@ -32,15 +35,19 @@ class App:
     _coordinator: Optional[Coordinator] = None
     _endpoints: List[Endpoint] = []
     _event_functions: Dict[AppEventType, Callable] = {}
+    _logger: Logger
 
     def __init__(
         self: "App",
         concurrency_mode: ConcurrencyMode | str = ConcurrencyMode.THREAD,
         codec: CodecType | str = CodecType.JSON,
+        logger: Optional[Logger] = None,
     ) -> None:
         self._concurrency_mode = ConcurrencyMode(concurrency_mode)
         self._endpoints = []
         self._codec_type = CodecType(codec)
+
+        self._logger = logger or self._make_default_logger()
 
     def _assert_function_compatible(
         self: "App",
@@ -76,6 +83,20 @@ class App:
             return asyncio.iscoroutinefunction(func)
 
         return not asyncio.iscoroutinefunction(func)
+
+    @property
+    def logger(self: "App") -> Logger:
+        """
+        Property that returns the logger for the application.
+
+        Returns:
+            Logger: The logger for the application.
+        """
+
+        return self._logger
+
+    def _make_default_logger(self: "App") -> Logger:
+        return logging.getLogger(root_logger_name)
 
     def on_event(
         self: "App",
@@ -224,9 +245,14 @@ class App:
         # run the coordinator
         assert self._coordinator is not None
         self._handle_event(AppEventType.START)
+        self.logger.info(
+            "Starting coordinator %s",
+            type(self._coordinator).__name__,
+        )
         self._coordinator.run()
 
         # when the coordinator is stopped by an interrupt, trigger the shutdown event
+        self.logger.info("Coordinator has stopped, sending shutdown event")
         self._handle_event(AppEventType.SHUTDOWN)
 
     def _init_threaded(self: "App", engine: Engine) -> None:

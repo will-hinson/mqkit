@@ -13,6 +13,7 @@ from ..coordinator import Coordinator
 from ...endpoints import Endpoint
 from ...engines import Engine
 from ...errors import FunctionTypeError, ShutdownRequested
+from ...logging import root_logger_name
 from .monotoniccounter import MonotonicCounter
 from .threadworker import ThreadWorker
 
@@ -41,7 +42,8 @@ class ThreadCoordinator(Coordinator):
         self._assert_endpoints_compatible()
         self._serial_number = self._counter.next()
         self._logger = logging.getLogger(
-            f"{self.__class__.__module__}.{self.__class__.__name__}-{self._serial_number}"
+            f"{root_logger_name}.{'.'.join(self.__class__.__module__.split('.')[1:-1])}."
+            f"{self.__class__.__name__}-{self._serial_number}"
         )
 
     def _assert_endpoints_compatible(self: "ThreadCoordinator") -> None:
