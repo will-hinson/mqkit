@@ -29,6 +29,7 @@ def _consume_threaded(
     worker: ThreadWorker = ThreadWorker(
         EndpointFactory.create_queue_endpoint(config),
         engine=engine,
+        error_queue=None,
     )
     try:
         worker.start()

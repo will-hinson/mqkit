@@ -18,6 +18,7 @@ __all__ = [
     "NoRetry",
     "SerializeError",
     "ShutdownRequested",
+    "WorkerTerminatedError",
 ]
 
 from .apperror import AppError
@@ -33,3 +34,4 @@ from .noforwardtargeterror import NoForwardTargetError
 from .noretry import NoRetry
 from .serializeerror import SerializeError
 from .shutdownrequested import ShutdownRequested
+from .workerterminatederror import WorkerTerminatedError

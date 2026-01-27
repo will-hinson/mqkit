@@ -1,3 +1,4 @@
+from queue import Queue as ProcessQueue
 import time
 
 from mqkit import create_engine, NoRetry
@@ -49,6 +50,7 @@ def test_threadworker_no_forwarding(rabbitmq_engine: RabbitMqEngine) -> None:
                 )
             ),
             engine=rabbitmq_engine,
+            error_queue=None,
         )
         worker.start()
 
@@ -94,6 +96,7 @@ def test_threadworker_no_retry(rabbitmq_engine: RabbitMqEngine) -> None:
                 )
             ),
             engine=rabbitmq_engine,
+            error_queue=None,
         )
         worker.start()
 
@@ -142,6 +145,7 @@ def test_threadworker_with_queue_forwarding(rabbitmq_engine: RabbitMqEngine) -> 
                 )
             ),
             engine=rabbitmq_engine,
+            error_queue=None,
         )
         worker.start()
 

@@ -6,8 +6,9 @@ A module defining a threaded worker for processing messages from a message queue
 
 import logging
 from logging import Logger
+from queue import Queue as ProcessQueue
 from threading import Event, Thread
-from typing import Optional
+from typing import Optional, Union
 
 from ...connections import Connection
 from ...endpoints import Endpoint
@@ -32,6 +33,7 @@ class ThreadWorker(Worker, Thread):
     _counter: MonotonicCounter = MonotonicCounter()
 
     _endpoint: Endpoint
+    _error_queue: Union[ProcessQueue, None]
     _logger: Logger
     _started_event: Event = Event()
     _stopped: bool = False
@@ -40,6 +42,7 @@ class ThreadWorker(Worker, Thread):
         self: "ThreadWorker",
         endpoint: Endpoint,
         engine: Engine,
+        error_queue: Union[ProcessQueue, None],
     ) -> None:
         Thread.__init__(
             self, name=f"ThreadWorker-{endpoint.qualname}-{self._counter.next()}"
@@ -48,6 +51,7 @@ class ThreadWorker(Worker, Thread):
 
         self._endpoint = endpoint
         self._engine = engine
+        self._error_queue = error_queue
         self._init_logger()
 
     def _handle_message(self: "ThreadWorker", message: QueueMessage) -> None:
@@ -125,6 +129,9 @@ class ThreadWorker(Worker, Thread):
             self._stopped = True
 
         self._started_event.set()
+        if self.error is not None and self._error_queue is not None:
+            # submit this worker to the error queue if we exited unexpectedly
+            self._error_queue.put(self)
 
     def stop(self: "ThreadWorker", message: Optional[str] = None) -> None:
         """
