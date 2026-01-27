@@ -1,7 +1,8 @@
 """
 module mqkit.marshal.fullytypedserializer
 
-Defines the FullyTypedSerializer for serializing function inputs and outputs with full type information.
+Defines the FullyTypedSerializer for serializing function inputs and outputs with
+full type information.
 """
 
 import inspect
