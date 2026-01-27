@@ -6,6 +6,7 @@ A module providing serialization and message handling utilities for message queu
 
 __all__ = [
     "codecs",
+    "FullyTypedSerializer",
     "ReturnTypeSerializer",
     "Serializer",
     "TypelessSerializer",
@@ -13,6 +14,7 @@ __all__ = [
 
 from . import codecs
 
+from .fullytypedserializer import FullyTypedSerializer
 from .returntypeserializer import ReturnTypeSerializer
 from .serializer import Serializer
 from .typelessserializer import TypelessSerializer
