@@ -77,6 +77,19 @@ class App:
 
         return self._concurrency_mode
 
+    def create_resources(self: "App", engine: Engine) -> None:
+        """
+        Returns the list of declared resources for the application.
+
+        Args:
+            None
+
+        Returns:
+            List[Declaration]: The list of declared resources.
+        """
+
+        engine.declare_resources(self._declarations)
+
     def declare(self: "App", resource: Union[Queue, Exchange]) -> Declaration:
         """
         Declares a message queue or exchange resource for the application.
@@ -332,7 +345,7 @@ class App:
             )
 
         # perform any declarations before starting
-        engine.declare_resources(self._declarations)
+        self.create_resources(engine)
 
         # run the coordinator
         assert self._coordinator is not None

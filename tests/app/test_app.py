@@ -267,12 +267,7 @@ def test_app_declare_queue(rabbitmq_engine: RabbitMqEngine) -> None:
         topic="another.test.topic",
     )
 
-    app_thread: Thread = Thread(
-        target=app.run,
-        args=(rabbitmq_engine,),
-        daemon=True,
-    )
-    app_thread.start()
+    app.create_resources(engine=rabbitmq_engine)
 
     for resource_name in [
         exchange_id,
