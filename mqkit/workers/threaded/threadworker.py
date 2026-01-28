@@ -6,16 +6,18 @@ A module defining a threaded worker for processing messages from a message queue
 
 import logging
 from logging import Logger
+from queue import Queue as ProcessQueue
 from threading import Event, Thread
-from typing import Optional
+from typing import Optional, Union
 
 from ...connections import Connection
 from ...endpoints import Endpoint
 from ...engines import Engine
 from ...errors import NoRetry, ShutdownRequested
-from ..worker import Worker
-from ...marshal import Forward, QueueMessage
+from ...logging import root_logger_name
+from ...messaging import Forward, QueueMessage
 from .monotoniccounter import MonotonicCounter
+from ..worker import Worker
 
 
 class ThreadWorker(Worker, Thread):
@@ -26,10 +28,12 @@ class ThreadWorker(Worker, Thread):
     """
 
     connection: Connection
+    error: Optional[Exception] = None
 
     _counter: MonotonicCounter = MonotonicCounter()
 
     _endpoint: Endpoint
+    _error_queue: Union[ProcessQueue, None]
     _logger: Logger
     _started_event: Event = Event()
     _stopped: bool = False
@@ -38,12 +42,16 @@ class ThreadWorker(Worker, Thread):
         self: "ThreadWorker",
         endpoint: Endpoint,
         engine: Engine,
+        error_queue: Union[ProcessQueue, None],
     ) -> None:
-        Thread.__init__(self, name=f"ThreadWorker-{self._counter.next()}")
+        Thread.__init__(
+            self, name=f"ThreadWorker-{endpoint.qualname}-{self._counter.next()}"
+        )
         Worker.__init__(self)
 
         self._endpoint = endpoint
         self._engine = engine
+        self._error_queue = error_queue
         self._init_logger()
 
     def _handle_message(self: "ThreadWorker", message: QueueMessage) -> None:
@@ -77,8 +85,8 @@ class ThreadWorker(Worker, Thread):
 
     def _init_logger(self: "ThreadWorker") -> None:
         self._logger = logging.getLogger(
-            name=f"{self.__class__.__module__.split('.', maxsplit=1)[0]}.{self.__class__.__name__}."
-            f"{self._endpoint.__class__.__name__}.{self._endpoint.qualname}"
+            f"{root_logger_name}.{'.'.join(self.__class__.__module__.split('.')[1:-1])}."
+            f"{self.name}"
         )
 
     def _process_messages(self: "ThreadWorker") -> None:
@@ -97,9 +105,12 @@ class ThreadWorker(Worker, Thread):
         return message
 
     def run(self: "ThreadWorker") -> None:
+        # pylint: disable=broad-exception-caught
         try:
             with self._engine.connect(
-                queue=self._endpoint.queue_name
+                queue=self._endpoint.queue_name,
+                persistent=self._endpoint.is_persistent,
+                auto_delete=self._endpoint.is_auto_delete,
             ) as self.connection:
                 self._started_event.set()
                 self._process_messages()
@@ -112,7 +123,15 @@ class ThreadWorker(Worker, Thread):
             )
             self._stopped = True
 
+        except Exception as exc:  # pragma: no cover
+            self._logger.exception("Unhandled exception in %s: %s", self.name, exc)
+            self.error = exc
+            self._stopped = True
+
         self._started_event.set()
+        if self.error is not None and self._error_queue is not None:
+            # submit this worker to the error queue if we exited unexpectedly
+            self._error_queue.put(self)
 
     def stop(self: "ThreadWorker", message: Optional[str] = None) -> None:
         """
@@ -137,3 +156,20 @@ class ThreadWorker(Worker, Thread):
         # if a message is already processing, the while loop will simply
         # exit after the message is processed
         self.connection.unblock(message=message)
+
+    @property
+    def stopped(self: "ThreadWorker") -> bool:
+        """
+        Indicates whether the worker has been stopped.
+
+        Args:
+            None
+
+        Returns:
+            bool: True if the worker has been stopped, False otherwise.
+
+        Raises:
+            Nothing
+        """
+
+        return self._stopped

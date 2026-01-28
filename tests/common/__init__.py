@@ -1,11 +1,13 @@
 import os
-from typing import Callable
+import time
+from typing import Callable, Set, Type
 import uuid
 
 import requests
 from requests import Response
 from slugify import slugify
 
+ASSERT_TIMEOUT: float = 30.0
 
 TEST_HOST: str = os.environ.get("RABBITMQ_HOST", "localhost")
 TEST_PORT: int = int(os.environ.get("RABBITMQ_PORT", "5672"))
@@ -115,16 +117,19 @@ def build_management_url(endpoint: str) -> str:
 
 
 def wait_to_assert(
-    assertion_func: Callable, timeout: float = 5.0, interval: float = 0.1
+    assertion_func: Callable,
+    timeout: float = 5.0,
+    interval: float = 0.1,
+    allow: Set[Type[Exception]] = set(),
 ) -> None:
-    import time
-
     start_time = time.time()
     while True:
         try:
             assert assertion_func()
             return
-        except AssertionError:
+        except Exception as e:
+            if type(e) not in allow and type(e) is not AssertionError:
+                raise
             if time.time() - start_time > timeout:
                 raise
             time.sleep(interval)

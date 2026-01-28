@@ -6,26 +6,38 @@ Abstract base class for message queue endpoints.
 
 from abc import ABCMeta, abstractmethod
 import asyncio
-from copy import copy
 import functools
 import inspect
-from typing import Any, Callable, Dict, NoReturn, Optional, Type
+from typing import Any, Callable, Dict, NoReturn, Optional, Type, TypeAlias, Union
+
+from mqkit.messaging.attributes import Attributes
 
 from ..errors import FunctionSignatureError
 from ..marshal import (
-    Forward,
-    QueueMessage,
     ReturnTypeSerializer,
     Serializer,
     TypelessSerializer,
 )
-from ..marshal.codecs import Codec, CodecType, JsonCodec, MessagePackCodec, YamlCodec
+from ..marshal.codecs import (
+    Codec,
+    CodecType,
+    JsonCodec,
+    MessagePackCodec,
+    RawCodec,
+    YamlCodec,
+)
+from ..messaging import Forward, QueueMessage, Response
 
 _codec_type_to_class: Dict[CodecType, Type[Codec]] = {
     CodecType.JSON: JsonCodec,
     CodecType.MESSAGEPACK: MessagePackCodec,
+    CodecType.RAW: RawCodec,
     CodecType.YAML: YamlCodec,
 }
+
+EndpointCallback: TypeAlias = Callable[
+    [Any, Attributes], Optional[Union[Response, bytes]]
+]
 
 
 class Endpoint(metaclass=ABCMeta):
@@ -36,14 +48,10 @@ class Endpoint(metaclass=ABCMeta):
     """
 
     _is_async: bool = False
-    _queue_name: str
-    _target: Callable[..., Any]
+    _target: Callable[..., Optional[Response]]
 
-    def __init__(
-        self: "Endpoint", queue_name: str, target: Callable, codec_type: CodecType
-    ) -> None:
+    def __init__(self: "Endpoint", target: Callable, codec_type: CodecType) -> None:
         self._is_async = asyncio.iscoroutinefunction(target)
-        self._queue_name = queue_name
         self._target = self._wrap_with_decode(
             target,
             codec_type=codec_type,
@@ -79,6 +87,50 @@ class Endpoint(metaclass=ABCMeta):
         return self._is_async
 
     @property
+    def is_auto_delete(self: "Endpoint") -> bool:
+        """
+        Property that indicates whether the endpoint is auto-delete.
+
+        Returns:
+            bool: True if the endpoint is auto-delete, False otherwise.
+        """
+
+        raise NotImplementedError(
+            f"Endpoint of type {type(self).__name__} does not implement is_auto_delete()"
+        )
+
+    @property
+    def is_persistent(self: "Endpoint") -> bool:
+        """
+        Property that indicates whether the endpoint is persistent.
+
+        Returns:
+            bool: True if the endpoint is persistent, False otherwise.
+        """
+
+        raise NotImplementedError(
+            f"Endpoint of type {type(self).__name__} does not implement is_persistent()"
+        )
+
+    def make_forward_headers(
+        self: "Endpoint", response: Response, origin_queue: str
+    ) -> Dict[str, str]:
+        """
+        Creates headers for forwarding a response message.
+
+        Args:
+            response (Response): The response message to create headers for.
+
+        Returns:
+            Dict[str, str]: A dictionary of headers for the forwarded message.
+        """
+
+        return {
+            "x-mqkit-forwarded": "true",
+            "x-mqkit-origin-queue": origin_queue,
+        } | response.headers
+
+    @property
     @abstractmethod
     def qualname(self: "Endpoint") -> str:  # pragma: no cover
         """
@@ -91,6 +143,7 @@ class Endpoint(metaclass=ABCMeta):
         raise NotImplementedError()
 
     @property
+    @abstractmethod
     def queue_name(self: "Endpoint") -> str:
         """
         Property that returns the name of the queue associated with this endpoint.
@@ -99,10 +152,10 @@ class Endpoint(metaclass=ABCMeta):
             str: The name of the queue.
         """
 
-        return copy(self._queue_name)
+        raise NotImplementedError()  # pragma: no cover
 
     @property
-    def target(self: "Endpoint") -> Callable[..., Any]:
+    def target(self: "Endpoint") -> Callable[..., Optional[Response]]:
         """
         Property that returns the target function associated with this endpoint.
 
@@ -124,7 +177,7 @@ class Endpoint(metaclass=ABCMeta):
         return _codec_type_to_class[codec_type]()
 
     def _make_serializer(
-        self: "Endpoint", func: Callable, codec_type: CodecType
+        self: "Endpoint", func: EndpointCallback, codec_type: CodecType
     ) -> Serializer:
         codec: Codec = self._make_codec(codec_type)
 
@@ -162,8 +215,10 @@ class Endpoint(metaclass=ABCMeta):
         return TypelessSerializer(function=function, codec=codec)
 
     def _wrap_with_decode(
-        self: "Endpoint", func: Callable, codec_type: CodecType
-    ) -> Callable[..., Any]:
+        self: "Endpoint",
+        func: EndpointCallback,
+        codec_type: CodecType,
+    ) -> Callable[..., Optional[Response]]:
         serializer: Serializer = self._make_serializer(
             func=func,
             codec_type=codec_type,
@@ -173,13 +228,22 @@ class Endpoint(metaclass=ABCMeta):
         def _deserialize_wrapper(
             *,
             message: bytes,
-            attributes: Dict[str, Any],
-        ) -> Any:
-            return serializer.serialize(
-                func(
-                    serializer.deserialize(message),
-                    attributes,
-                )
+            attributes: Attributes,
+        ) -> Optional[Response]:
+            # call the function and get the result. it could be a Response object, some
+            # data, or None. we want to marshal this into Response | None
+            result: Optional[Union[Response, bytes]] = func(
+                serializer.deserialize(message),
+                attributes,
             )
+            if result is None:
+                return None
+            if not isinstance(result, Response):
+                result = Response(content=result)
+
+            # serialize the content into byte data and return the Response. if the serializer
+            # returns None, Response.data will raise an error
+            result.data = serializer.serialize(result.content)
+            return result
 
         return _deserialize_wrapper

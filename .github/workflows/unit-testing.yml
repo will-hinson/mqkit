@@ -45,6 +45,7 @@ jobs:
       env:
         RABBITMQ_USER: ${{ secrets.RABBITMQ_USER }}
         RABBITMQ_PASSWORD: ${{ secrets.RABBITMQ_PASSWORD }}
+        MQKIT_ENGINE_URL: amqp://${{ secrets.RABBITMQ_USER }}:${{ secrets.RABBITMQ_PASSWORD }}@localhost/
       run: |
         poetry run coverage run --concurrency=thread -m pytest -s
     - name: Check coverage ratio

@@ -1,13 +1,17 @@
+from queue import Queue as ProcessQueue
 import time
 
 from mqkit import create_engine, NoRetry
-from mqkit.endpoints.queueendpoint import QueueEndpoint
+from mqkit.endpoints import QueueEndpoint
+from mqkit.endpoints.config import QueueEndpointConfig
 from mqkit.engines.rabbitmq import RabbitMqEngine
+from mqkit.messaging import Queue
 from mqkit.workers.threaded import ThreadWorker
 
 import pytest
 
 from ..common import (
+    ASSERT_TIMEOUT,
     ManagedQueue,
     TEST_PASSWORD,
     TEST_USERNAME,
@@ -37,31 +41,37 @@ def test_threadworker_no_forwarding(rabbitmq_engine: RabbitMqEngine) -> None:
         # define/start the ThreadWorker and wait for the queue to be ready
         worker: ThreadWorker = ThreadWorker(
             QueueEndpoint(
-                queue_name=managed_queue.name,
-                target=target,
-                codec_type="json",
+                QueueEndpointConfig(
+                    queue=Queue(
+                        name=managed_queue.name,
+                    ),
+                    target=target,
+                    codec_type="json",
+                )
             ),
             engine=rabbitmq_engine,
+            error_queue=None,
         )
         worker.start()
 
         try:
             # wait for the queue to be ready
-            wait_to_assert(lambda: managed_queue.exists, timeout=5.0)
+            wait_to_assert(lambda: managed_queue.exists, timeout=ASSERT_TIMEOUT)
 
             # publish some test messages and check that they are processed
             for n in range(5):
                 managed_queue.publish(f'{{"msg": {n}}}')
-            wait_to_assert(lambda: counter == 5, timeout=10.0)
+            wait_to_assert(lambda: counter == 5, timeout=ASSERT_TIMEOUT)
         finally:
             worker.stop("Test complete")
             worker.join()
+            assert worker.stopped
 
         # now, put a few more messages in and ensure they are not processed
         for n in range(5, 10):
             managed_queue.publish(f'{{"msg": {n}}}')
         time.sleep(5.0)
-        wait_to_assert(lambda: counter == 5, timeout=5.0)
+        wait_to_assert(lambda: counter == 5, timeout=ASSERT_TIMEOUT)
 
 
 def test_threadworker_no_retry(rabbitmq_engine: RabbitMqEngine) -> None:
@@ -77,29 +87,35 @@ def test_threadworker_no_retry(rabbitmq_engine: RabbitMqEngine) -> None:
         # define/start the ThreadWorker and wait for the queue to be ready
         worker: ThreadWorker = ThreadWorker(
             QueueEndpoint(
-                queue_name=managed_queue.name,
-                target=target,
-                codec_type="json",
+                QueueEndpointConfig(
+                    queue=Queue(
+                        name=managed_queue.name,
+                    ),
+                    target=target,
+                    codec_type="json",
+                )
             ),
             engine=rabbitmq_engine,
+            error_queue=None,
         )
         worker.start()
 
         try:
             # wait for the queue to be ready
-            wait_to_assert(lambda: managed_queue.exists, timeout=5.0)
+            wait_to_assert(lambda: managed_queue.exists, timeout=ASSERT_TIMEOUT)
 
             # publish some test messages and check that they are processed
             for n in range(5):
                 managed_queue.publish(f'{{"msg": {n}}}')
-            wait_to_assert(lambda: counter == 5, timeout=10.0)
+            wait_to_assert(lambda: counter == 5, timeout=ASSERT_TIMEOUT)
 
             # ensure that the messages are not reprocessed
             time.sleep(5.0)
-            wait_to_assert(lambda: counter == 5, timeout=5.0)
+            wait_to_assert(lambda: counter == 5, timeout=ASSERT_TIMEOUT)
         finally:
             worker.stop("Test complete")
             worker.join()
+            assert worker.stopped
 
 
 def test_threadworker_with_queue_forwarding(rabbitmq_engine: RabbitMqEngine) -> None:
@@ -119,33 +135,39 @@ def test_threadworker_with_queue_forwarding(rabbitmq_engine: RabbitMqEngine) -> 
         # define/start the ThreadWorker and wait for the queue to be ready
         worker: ThreadWorker = ThreadWorker(
             QueueEndpoint(
-                queue_name=source_queue.name,
-                target=target,
-                codec_type="json",
-                forward_to=forwarded_queue.name,
+                QueueEndpointConfig(
+                    queue=Queue(
+                        name=source_queue.name,
+                    ),
+                    target=target,
+                    codec_type="json",
+                    forward_to=forwarded_queue.name,
+                )
             ),
             engine=rabbitmq_engine,
+            error_queue=None,
         )
         worker.start()
 
         try:
             # wait for the queue to be ready
-            wait_to_assert(lambda: source_queue.exists, timeout=5.0)
+            wait_to_assert(lambda: source_queue.exists, timeout=ASSERT_TIMEOUT)
 
             # publish some test messages and check that they are processed
             for n in range(5):
                 source_queue.publish(f'{{"msg": {n}}}')
-            wait_to_assert(lambda: counter == 5, timeout=10.0)
+            wait_to_assert(lambda: counter == 5, timeout=ASSERT_TIMEOUT)
 
             # inspect the status of the forwarded queue
-            wait_to_assert(lambda: forwarded_queue.size == 5, timeout=5.0)
+            wait_to_assert(lambda: forwarded_queue.size == 5, timeout=ASSERT_TIMEOUT)
         finally:
             worker.stop("Test complete")
             worker.join()
+            assert worker.stopped
 
         # now, put a few more messages in and ensure they are not processed
         for n in range(5, 10):
             source_queue.publish(f'{{"msg": {n}}}')
         time.sleep(5.0)
-        wait_to_assert(lambda: counter == 5, timeout=5.0)
-        wait_to_assert(lambda: forwarded_queue.size == 5, timeout=5.0)
+        wait_to_assert(lambda: counter == 5, timeout=ASSERT_TIMEOUT)
+        wait_to_assert(lambda: forwarded_queue.size == 5, timeout=ASSERT_TIMEOUT)

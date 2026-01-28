@@ -92,6 +92,17 @@ class ReturnTypeSerializer(Serializer):
             "Return type annotation must be a subclass of BaseModel or Dict"
         )  # pragma: no cover
 
+    @property
+    def return_type(self: "ReturnTypeSerializer") -> Any:
+        """
+        Property that returns the return type annotation of the function.
+
+        Returns:
+            Any: The return type annotation.
+        """
+
+        return self._return_type
+
     def _serialize_none(self: "ReturnTypeSerializer", data: Any) -> None:
         if data is not None:
             raise SerializeError(

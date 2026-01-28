@@ -1,8 +1,9 @@
 from typing import Optional
 
 from mqkit.endpoints import QueueEndpoint
-from mqkit.errors.noforwardtargeterror import NoForwardTargetError
-from mqkit.marshal import Attributes, Forward, QueueMessage
+from mqkit.endpoints.config import QueueEndpointConfig
+from mqkit.errors import NoForwardTargetError
+from mqkit.messaging import Attributes, Forward, Queue, QueueMessage
 
 import pytest
 
@@ -12,9 +13,13 @@ def test_queue_endpoint_no_forward_no_result() -> None:
         pass
 
     endpoint = QueueEndpoint(
-        queue_name="test-queue",
-        target=target,
-        codec_type="json",
+        QueueEndpointConfig(
+            queue=Queue(
+                name="test-queue",
+            ),
+            target=target,
+            codec_type="json",
+        )
     )
 
     assert endpoint.queue_name == "test-queue"
@@ -38,9 +43,13 @@ def test_queue_endpoint_no_forward_with_result() -> None:
         return {"response": "ok"}
 
     endpoint = QueueEndpoint(
-        queue_name="test-queue",
-        target=target,
-        codec_type="json",
+        QueueEndpointConfig(
+            queue=Queue(
+                name="test-queue",
+            ),
+            target=target,
+            codec_type="json",
+        )
     )
 
     assert endpoint.queue_name == "test-queue"
@@ -64,10 +73,16 @@ def test_queue_endpoint_with_forward_queue() -> None:
         return {"response": "ok"}
 
     endpoint = QueueEndpoint(
-        queue_name="test-queue",
-        target=target,
-        codec_type="json",
-        forward_to="response-queue",
+        QueueEndpointConfig(
+            queue=Queue(
+                name="test-queue",
+            ),
+            target=target,
+            codec_type="json",
+            forward_to=Queue(
+                name="response-queue",
+            ),
+        )
     )
 
     assert endpoint.queue_name == "test-queue"
@@ -84,5 +99,6 @@ def test_queue_endpoint_with_forward_queue() -> None:
         )
     )
     assert result is not None
-    assert result.forward_target == "response-queue"
+    assert isinstance(result.forward_target, Queue)
+    assert result.forward_target.name == "response-queue"
     assert result.message.data == b'{"response": "ok"}'

@@ -5,9 +5,11 @@ Defines the abstract base class Connection for message queue connections.
 """
 
 from abc import ABCMeta, abstractmethod
-from typing import Optional, Type
+from typing import Optional, List, Type
 
-from ..marshal import Forward, QueueMessage
+from mqkit.declarations import Declaration
+
+from ..messaging import Forward, QueueMessage
 
 
 class Connection(metaclass=ABCMeta):
@@ -41,6 +43,23 @@ class Connection(metaclass=ABCMeta):
 
         Args:
             message (QueueMessage): The message to acknowledge.
+
+        Returns:
+            None
+
+        Raises:
+            NotImplementedError: If the method is not implemented.
+        """
+
+        raise NotImplementedError()
+
+    @abstractmethod
+    def declare_resources(self: "Connection", resources: List[Declaration]) -> None:
+        """
+        Declare a messaging resource (e.g., queue, exchange).
+
+        Args:
+            resource (Declaration): The resource to declare.
 
         Returns:
             None

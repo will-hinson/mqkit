@@ -88,3 +88,27 @@ def test_returntypeserializer_return_type_none() -> None:
     serializer = ReturnTypeSerializer(function=invalid_function, codec=JsonCodec())
     with pytest.raises(SerializeError):
         assert serializer.serialize(invalid_function(None, None)) is None
+
+
+def test_returntypeserializer_return_type_property() -> None:
+    class TestModel(BaseModel):
+        id: int
+        name: str
+
+        @property
+        def info(self) -> str:
+            return f"{self.id}-{self.name}"
+
+    def valid_function(message, parameters) -> TestModel:
+        return TestModel(id=1, name="Test")
+
+    def dict_function(message, parameters) -> Dict:
+        return {"id": 1, "name": "Test"}
+
+    serializer: ReturnTypeSerializer = ReturnTypeSerializer(
+        function=valid_function, codec=JsonCodec()
+    )
+    assert serializer.return_type is TestModel
+
+    serializer = ReturnTypeSerializer(function=dict_function, codec=JsonCodec())
+    assert serializer.return_type is Dict

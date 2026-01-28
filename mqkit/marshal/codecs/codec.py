@@ -5,7 +5,7 @@ Defines the abstract base class Codec for encoding and decoding data.
 """
 
 from abc import ABCMeta, abstractmethod
-from typing import Any, Dict
+from typing import Any
 
 
 class Codec(metaclass=ABCMeta):
@@ -31,7 +31,7 @@ class Codec(metaclass=ABCMeta):
         raise NotImplementedError()
 
     @abstractmethod
-    def decode(self: "Codec", data: bytes) -> Dict[str, Any]:
+    def decode(self: "Codec", data: bytes) -> Any:
         """
         Decode the given bytes data into a dictionary.
 
@@ -48,7 +48,7 @@ class Codec(metaclass=ABCMeta):
         raise NotImplementedError()
 
     @abstractmethod
-    def encode(self: "Codec", data: Dict[str, Any]) -> bytes:
+    def encode(self: "Codec", data: Any) -> bytes:
         """
         Encode the given dictionary data into bytes.
 
