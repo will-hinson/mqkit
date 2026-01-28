@@ -44,7 +44,7 @@ class ExchangeDeclaration(BaseModel):
         if isinstance(resource, QueueDeclaration):
             resource = resource.queue
 
-        self.bindings.append(
+        self.bindings.append(  # pylint: disable=no-member
             ExchangeBinding(
                 bound_resource=resource,
                 topic=topic,
