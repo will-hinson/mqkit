@@ -1,4 +1,8 @@
+import json
+import uuid
+
 from requests.exceptions import JSONDecodeError
+from slugify import slugify
 from mqkit import create_engine
 from mqkit.connections.amqp import AmqpConnection
 from mqkit.endpoints.config.queueendpointconfig import QueueEndpointConfig
@@ -10,6 +14,7 @@ from mqkit.messaging import Exchange, Forward, Queue, QueueMessage
 import pytest
 import requests
 
+from mqkit.messaging.destination import Destination
 from mqkit.messaging.response import Response
 
 from ..common import (
@@ -315,3 +320,110 @@ def test_amqp_connection_ssl() -> None:
     with pytest.raises(RuntimeError):
         with ssl_engine.connect(queue="my_ssl_queue") as _:
             ...
+
+
+def test_amqp_connection_forwarding_with_topic(
+    rabbitmq_engine: RabbitMqEngine,
+) -> None:
+    with (
+        ManagedQueue(base_queue_name="source_queue") as source_queue,
+        rabbitmq_engine.connect(queue=source_queue.name) as connection,
+    ):
+        target_queue_name: str = f"target_queue_{uuid.uuid4()}"
+        response = requests.put(
+            build_management_url(f"/api/queues/%2F/{target_queue_name}"),
+            auth=(TEST_USERNAME, TEST_PASSWORD),
+            json={
+                "durable": True,
+                "auto_delete": False,
+                "exclusive": False,
+            },
+        )
+        assert response.ok
+
+        message_data: str = f'{{"test":"message","uuid":"{source_queue.uuid}"}}'
+
+        # publish the test message to the source queue and wait for it to arrive
+        assert source_queue.size == 0
+        source_queue.publish(message_data)
+        wait_to_assert(lambda: source_queue.size == 1, timeout=ASSERT_TIMEOUT)
+
+        # get the message from the source queue and verify its contents
+        message: QueueMessage = connection.get_message()
+        assert message.data.decode("utf-8") == message_data
+
+        # forward the message to the target queue
+        endpoint: QueueEndpoint = QueueEndpoint(
+            config=QueueEndpointConfig(
+                queue=Queue(name="source_queue"),
+                codec_type="json",
+                target=lambda x, y: x,
+                forward_to=Destination(
+                    resource=Queue(name=target_queue_name),
+                    topic="my.topic",
+                ),
+            )
+        )
+        response = Response(
+            content={"forwarded": True},
+            headers={"X-Custom-Header": "CustomValue"},
+        )
+        with pytest.raises(ValueError):
+            # make sure forwarding fails if no data is set
+            endpoint._forward_result(response)
+        response.data = b'{"forwarded": true}'
+        forward = endpoint._forward_result(response)
+        assert forward is not None
+
+        # verify that the forwarded message has the correct headers
+        assert forward.message.attributes.headers == {
+            "x-mqkit-forwarded": "true",
+            "x-mqkit-origin-queue": "source_queue",
+            "X-Custom-Header": "CustomValue",
+        }
+        assert forward.message.attributes.topic == "my.topic"
+
+        # forward the message using the connection then retrieve it from the target queue
+        connection.forward_message(forward)
+        wait_to_assert(
+            lambda: requests.get(
+                build_management_url(f"/api/queues/%2F/{target_queue_name}"),
+                auth=(TEST_USERNAME, TEST_PASSWORD),
+            ).json()["messages"]
+            == 1,
+            timeout=ASSERT_TIMEOUT,
+            allow={JSONDecodeError},
+        )
+        response = requests.post(
+            build_management_url(f"/api/queues/%2F/{target_queue_name}/get"),
+            auth=(TEST_USERNAME, TEST_PASSWORD),
+            json={
+                "count": 1,
+                "ackmode": "ack_requeue_false",
+                "encoding": "auto",
+                "truncate": 50000,
+            },
+        )
+        assert response.ok
+        message_recv = response.json()[0]
+        assert json.loads(message_recv["payload"]) == {"forwarded": True}
+        assert message_recv["routing_key"] == "my.topic"
+        assert message_recv["properties"]["headers"] == {
+            "x-mqkit-forwarded": "true",
+            "x-mqkit-origin-queue": "source_queue",
+            "X-Custom-Header": "CustomValue",
+        }
+
+        # clean up the target queue and exchange
+        response = requests.delete(
+            build_management_url(f"/api/queues/%2F/{target_queue_name}"),
+            auth=(TEST_USERNAME, TEST_PASSWORD),
+        )
+        assert response.ok
+        response = requests.delete(
+            build_management_url(
+                f"/api/exchanges/%2F/mqkit.resubmit.{slugify(target_queue_name, separator='_')}"
+            ),
+            auth=(TEST_USERNAME, TEST_PASSWORD),
+        )
+        assert response.ok

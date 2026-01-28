@@ -195,6 +195,42 @@ class AmqpConnection(Connection, BaseModel):
                 "is not implemented"
             )
 
+    def _declare_resubmit_exchange(
+        self: "AmqpConnection",
+        target_queue: Queue,
+        thread_local: bool = False,
+    ) -> Exchange:
+        if self._connection is None or self._channel is None:  # pragma: no cover
+            raise RuntimeError("AMQP channel is not established")
+
+        resubmit_exchange: Exchange = Exchange(
+            name=self._get_resubmit_exchange(target_queue.name),
+            type=ExchangeType.FANOUT,
+            persistent=target_queue.persistent,
+        )
+
+        # declare the exchange and bind the queue to it
+        self._declare_exchange(
+            resubmit_exchange,
+            thread_local=thread_local,
+        )
+        if thread_local:
+            self._channel.queue_bind(
+                queue=target_queue.name,
+                exchange=resubmit_exchange.name,
+            )
+        else:
+            self._connection.add_callback_threadsafe(
+                functools.partial(
+                    self._channel.queue_bind,
+                    queue=target_queue.name,
+                    exchange=resubmit_exchange.name,
+                )
+            )
+
+        # return the exchange object we instantiated
+        return resubmit_exchange
+
     def declare_resources(self: "AmqpConnection", resources: List[Declaration]) -> None:
         if self._connection is None or self._channel is None:
             self._connection = self._make_connection()
@@ -254,17 +290,9 @@ class AmqpConnection(Connection, BaseModel):
         )
 
         # declare a default resubmit exchange for failed messages
-        self._declare_exchange(
-            Exchange(
-                name=self.resubmit_exchange,
-                type=ExchangeType.FANOUT,
-                persistent=self.queue.persistent,
-            ),
+        self._declare_resubmit_exchange(
+            self.queue,
             thread_local=True,
-        )
-        self._channel.queue_bind(
-            queue=self.queue.name,
-            exchange=self.resubmit_exchange,
         )
 
         self._start_consuming()
@@ -284,22 +312,7 @@ class AmqpConnection(Connection, BaseModel):
             raise RuntimeError("AMQP channel is not established")
 
         if isinstance(forward.forward_target, Queue):
-            # NOTE: support forward target durability options later. we can maybe infer
-            # from other queue definitions
-            self._declare_queue(forward.forward_target)
-            self._connection.add_callback_threadsafe(
-                functools.partial(
-                    self._channel.basic_publish,
-                    exchange="",
-                    routing_key=forward.forward_target.name,
-                    body=forward.message.data,
-                    properties=BasicProperties(
-                        headers=forward.message.attributes.headers,
-                        delivery_mode=2,  # make message persistent
-                    ),
-                )
-            )
-            return
+            return self._forward_message_to_queue(forward)
 
         if isinstance(forward.forward_target, Exchange):
             self._declare_exchange(forward.forward_target)
@@ -321,6 +334,46 @@ class AmqpConnection(Connection, BaseModel):
             f"Forwarding to targets of type {type(forward.forward_target).__name__} "
             "is not implemented"
         )  # pragma: no cover
+
+    def _forward_message_to_queue(
+        self: "AmqpConnection",
+        forward: Forward,
+    ) -> None:
+        if self._connection is None or self._channel is None:  # pragma: no cover
+            raise RuntimeError("AMQP channel is not established")
+        if not isinstance(forward.forward_target, Queue):  # pragma: no cover
+            raise TypeError("Forward target must be a Queue")
+
+        # if a topic was specified, we cannot forward to a queue directly. ensure that
+        # a resumbit exchange exists for the target queue and publish to that instead
+        if forward.message.attributes.topic is not None:
+            return self.forward_message(
+                Forward(
+                    forward_target=self._declare_resubmit_exchange(
+                        forward.forward_target
+                    ),
+                    message=forward.message,
+                )
+            )
+
+        # if no topic was specified, just publish to the queue directly using the
+        # default exchange
+
+        # NOTE: support forward target durability options later. we can maybe infer
+        # from other queue definitions
+        self._declare_queue(forward.forward_target)
+        self._connection.add_callback_threadsafe(
+            functools.partial(
+                self._channel.basic_publish,
+                exchange="",
+                routing_key=forward.forward_target.name,
+                body=forward.message.data,
+                properties=BasicProperties(
+                    headers=forward.message.attributes.headers,
+                    delivery_mode=2,  # make message persistent
+                ),
+            )
+        )
 
     def get_message(self: "AmqpConnection") -> QueueMessage:
         message: AmqpMessage | AmqpSentinel = self._message_queue.get()
@@ -387,8 +440,11 @@ class AmqpConnection(Connection, BaseModel):
             )
         )
 
+    def _get_resubmit_exchange(self: "AmqpConnection", queue_name: str) -> str:
+        return f"mqkit.resubmit.{slugify(queue_name, separator='_')}"
+
     @property
-    def resubmit_exchange(self: "AmqpConnection") -> str:
+    def resubmit_exchange(self: "AmqpConnection") -> str:  # pragma: no cover
         """
         Property that returns the name of the resubmit exchange for the queue
         associated with this connection.
@@ -397,7 +453,7 @@ class AmqpConnection(Connection, BaseModel):
             str: The name of the resubmit exchange.
         """
 
-        return f"mqkit.resubmit.{slugify(self.queue.name, separator='_')}"
+        return self._get_resubmit_exchange(self.queue.name)
 
     def _start_consuming(self: "AmqpConnection") -> None:
         if self._channel is None:
