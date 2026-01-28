@@ -312,7 +312,8 @@ class AmqpConnection(Connection, BaseModel):
             raise RuntimeError("AMQP channel is not established")
 
         if isinstance(forward.forward_target, Queue):
-            return self._forward_message_to_queue(forward)
+            self._forward_message_to_queue(forward)
+            return
 
         if isinstance(forward.forward_target, Exchange):
             self._declare_exchange(forward.forward_target)
@@ -347,7 +348,7 @@ class AmqpConnection(Connection, BaseModel):
         # if a topic was specified, we cannot forward to a queue directly. ensure that
         # a resumbit exchange exists for the target queue and publish to that instead
         if forward.message.attributes.topic is not None:
-            return self.forward_message(
+            self.forward_message(
                 Forward(
                     forward_target=self._declare_resubmit_exchange(
                         forward.forward_target
@@ -355,6 +356,7 @@ class AmqpConnection(Connection, BaseModel):
                     message=forward.message,
                 )
             )
+            return
 
         # if no topic was specified, just publish to the queue directly using the
         # default exchange
