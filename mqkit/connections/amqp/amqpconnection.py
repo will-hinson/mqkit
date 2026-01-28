@@ -9,7 +9,7 @@ the RabbitMqEngine class
 import functools
 from queue import Queue as ProcessQueue
 import threading
-from typing import ClassVar, Optional, Set
+from typing import ClassVar, List, Optional, Set
 
 from pika import BasicProperties, ConnectionParameters, PlainCredentials, SSLOptions
 from pika import BlockingConnection as PikaBlockingConnection
@@ -22,6 +22,7 @@ from .amqpconsumethread import AmqpConsumeThread
 from .amqpmessage import AmqpMessage
 from .amqpsentinel import AmqpSentinel
 from ..connection import Connection
+from ...declarations import Declaration, ExchangeDeclaration, QueueDeclaration
 from ...errors import ShutdownRequested
 from ...messaging import (
     Attributes,
@@ -160,6 +161,65 @@ class AmqpConnection(Connection, BaseModel):
             declare()
 
         self._declared_queues.add(queue.name)
+
+    def _declare_exchange_with_bindings(
+        self: "AmqpConnection",
+        exchange_declaration: ExchangeDeclaration,
+    ) -> None:
+        if self._connection is None or self._channel is None:  # pragma: no cover
+            raise RuntimeError("AMQP channel is not established")
+
+        self._declare_exchange(
+            exchange_declaration.exchange,
+            thread_local=True,
+        )
+
+        for binding in exchange_declaration.bindings:
+            if isinstance(binding.bound_resource, Queue):
+                self._channel.queue_bind(
+                    queue=binding.bound_resource.name,
+                    exchange=exchange_declaration.exchange.name,
+                    routing_key=binding.topic,
+                )
+                continue
+            if isinstance(binding.bound_resource, Exchange):
+                self._channel.exchange_bind(
+                    destination=binding.bound_resource.name,
+                    source=exchange_declaration.exchange.name,
+                    routing_key=binding.topic,
+                )
+                continue
+
+            raise NotImplementedError(  # pragma: no cover
+                f"Binding resources of type {type(binding.bound_resource).__name__} "
+                "is not implemented"
+            )
+
+    def declare_resources(self: "AmqpConnection", resources: List[Declaration]) -> None:
+        if self._connection is None or self._channel is None:
+            self._connection = self._make_connection()
+            self._channel = self._connection.channel()
+
+        try:
+            for resource in resources:
+                if isinstance(resource, ExchangeDeclaration):
+                    self._declare_exchange_with_bindings(resource)
+                    continue
+                if isinstance(resource, QueueDeclaration):
+                    self._declare_queue(
+                        resource.queue,
+                        thread_local=True,
+                    )
+                    continue
+
+                raise NotImplementedError(  # pragma: no cover
+                    f"Declaring resources of type {type(resource).__name__} is not implemented"
+                )
+        finally:
+            if self._connection is not None and not self._connection.is_closed:
+                self._connection.close()
+                self._connection = None
+                self._channel = None
 
     def _enqueue_message(
         self: "AmqpConnection",

@@ -15,6 +15,7 @@ __all__ = [
     #
     "apps",
     "credentials",
+    "declarations",
     "endpoints",
     "engines",
     "errors",
@@ -27,6 +28,7 @@ __all__ = [
 
 from . import apps
 from . import credentials
+from . import declarations
 from . import endpoints
 from . import engines
 from . import errors

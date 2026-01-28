@@ -10,6 +10,7 @@ from logging import Logger
 from typing import Callable, Dict, List, Optional, Union
 
 from .concurrencymode import ConcurrencyMode
+from ..declarations import Declaration, ExchangeDeclaration, QueueDeclaration
 from ..endpoints import Endpoint, EndpointFactory, QueueEndpoint
 from ..endpoints.config import QueueEndpointConfig
 from ..engines import Engine
@@ -17,7 +18,7 @@ from ..errors import FunctionTypeError
 from ..events import AppEventType
 from ..logging import root_logger_name
 from ..marshal.codecs import CodecType
-from ..messaging import Exchange, Queue
+from ..messaging import Exchange, ExchangeType, Queue
 from ..workers import Coordinator
 from ..workers.threaded import ThreadCoordinator
 
@@ -33,9 +34,11 @@ class App:
     _codec_type: CodecType
     _concurrency_mode: ConcurrencyMode
     _coordinator: Optional[Coordinator] = None
+    _declarations: List[Declaration]
     _endpoints: List[Endpoint] = []
     _event_functions: Dict[AppEventType, Callable] = {}
     _logger: Logger
+    _started: bool = False
 
     def __init__(
         self: "App",
@@ -44,6 +47,7 @@ class App:
         logger: Optional[Logger] = None,
     ) -> None:
         self._concurrency_mode = ConcurrencyMode(concurrency_mode)
+        self._declarations = []
         self._endpoints = []
         self._codec_type = CodecType(codec)
 
@@ -72,6 +76,94 @@ class App:
         """
 
         return self._concurrency_mode
+
+    def create_resources(self: "App", engine: Engine) -> None:
+        """
+        Returns the list of declared resources for the application.
+
+        Args:
+            None
+
+        Returns:
+            List[Declaration]: The list of declared resources.
+        """
+
+        engine.declare_resources(self._declarations)
+
+    def declare(self: "App", resource: Union[Queue, Exchange]) -> Declaration:
+        """
+        Declares a message queue or exchange resource for the application.
+
+        Args:
+            resource (Union[Queue, Exchange]): The message queue or exchange to declare.
+
+        Returns:
+            None
+        """
+
+        if self._started:
+            raise RuntimeError("Cannot declare resources after the app has started")
+
+        declaration: Declaration
+        if isinstance(resource, Exchange):
+            declaration = ExchangeDeclaration(
+                exchange=Exchange(
+                    name=resource.name,
+                    type=resource.type,
+                    persistent=resource.persistent,
+                    auto_delete=resource.auto_delete,
+                ),
+            )
+            self._declarations.append(declaration)
+            return declaration
+        if isinstance(resource, Queue):
+            declaration = QueueDeclaration(
+                queue=Queue(
+                    name=resource.name,
+                    persistent=resource.persistent,
+                    auto_delete=resource.auto_delete,
+                ),
+            )
+            self._declarations.append(declaration)
+            return declaration
+
+        raise TypeError(f"Cannot declare resource of type {type(resource).__name__}")
+
+    def exchange(
+        # pylint: disable=redefined-builtin
+        self: "App",
+        name: str,
+        type: Union[ExchangeType, str],
+        persistent: bool = True,
+        auto_delete: bool = False,
+    ) -> ExchangeDeclaration:
+        """
+        Declares an exchange resource for the application.
+
+        Args:
+            name (str): The name of the exchange.
+            type (ExchangeType): The type of the exchange.
+            persistent (bool): Whether the exchange is persistent. Defaults to True.
+            auto_delete (bool): Whether the exchange is auto-delete. Defaults to False.
+
+        Returns:
+            None
+        """
+
+        declaration: Declaration = self.declare(
+            Exchange(
+                name=name,
+                type=type,
+                persistent=persistent,
+                auto_delete=auto_delete,
+            )
+        )
+        if not isinstance(declaration, ExchangeDeclaration):  # pragma: no cover
+            raise TypeError(
+                "Declared exchange did not return ExchangeDeclaration instance"
+            )
+
+        return declaration
 
     def _handle_event(self: "App", event_type: AppEventType) -> None:
         func: Optional[Callable] = self._event_functions.get(event_type)
@@ -115,6 +207,11 @@ class App:
         Raises:
             FunctionTypeError: If the function is not compatible with the selected concurrency mode.
         """
+
+        if self._started:
+            raise RuntimeError(
+                "Cannot register event handlers after the app has started"
+            )
 
         def _on_event_decorator(
             func: Callable[[], None],
@@ -191,6 +288,9 @@ class App:
             TypeError: If the function is not compatible with the selected concurrency mode.
         """
 
+        if self._started:
+            raise RuntimeError("Cannot register endpoints after the app has started")
+
         codec = CodecType(codec) if codec is not None else self._codec_type
 
         def _queue_decorator(func: Callable) -> QueueEndpoint:
@@ -230,6 +330,8 @@ class App:
             NotImplementedError: If the selected concurrency mode is not implemented.
         """
 
+        self._started = True
+
         # ensure the app is not already running
         if self._coordinator is not None:
             raise RuntimeError("App is already running")
@@ -241,6 +343,9 @@ class App:
             raise NotImplementedError(
                 f"Unimplemented concurrency mode '{self.concurrency_mode.value}'"
             )
+
+        # perform any declarations before starting
+        self.create_resources(engine)
 
         # run the coordinator
         assert self._coordinator is not None
@@ -265,6 +370,17 @@ class App:
             endpoints=self._endpoints,
             engine=engine,
         )
+
+    @property
+    def started(self: "App") -> bool:
+        """
+        Property that indicates whether the application has been started.
+
+        Returns:
+            bool: True if the application has been started, False otherwise.
+        """
+
+        return self._started
 
     def stop(self: "App") -> None:
         """

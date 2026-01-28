@@ -145,6 +145,10 @@ class ThreadCoordinator(Coordinator):
     ) -> None:
         self._logger.warning("KeyboardInterrupt received, stopping workers")
 
+        if not hasattr(self, "_workers"):
+            self._logger.warning("No workers to stop")
+            return
+
         for worker in self._workers:
             worker.stop(message=f"{reason} ({exception!r})")
         for worker in self._workers:

@@ -6,12 +6,13 @@ for creating connections to message queues.
 """
 
 from abc import ABCMeta, abstractmethod
-from typing import Type
+from typing import List, Type
 
 from pydantic import BaseModel
 from yarl import URL
 
 from ..connections import Connection
+from ..declarations import Declaration
 
 
 class Engine(BaseModel, metaclass=ABCMeta):
@@ -38,6 +39,23 @@ class Engine(BaseModel, metaclass=ABCMeta):
 
         Returns:
             Connection: A connection object for the specified message queue.
+
+        Raises:
+            NotImplementedError: If the method is not implemented.
+        """
+
+        raise NotImplementedError()
+
+    @abstractmethod
+    def declare_resources(self: "Engine", resources: List[Declaration]) -> None:
+        """
+        Declare the necessary resources (exchanges, queues, bindings) for the engine.
+
+        Args:
+            resources (ExchangeDeclaration): The resources to declare.
+
+        Returns:
+            None
 
         Raises:
             NotImplementedError: If the method is not implemented.

@@ -8,6 +8,7 @@ import pytest
 def test_connection_is_abstract_base_class() -> None:
     for function in [
         "connect",
+        "declare_resources",
         "from_url",
     ]:
         assert hasattr(Engine, function)
