@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 
 from ..messaging import Exchange, Queue
 from .exchangebinding import ExchangeBinding
+from .queuedeclaration import QueueDeclaration
 
 
 class ExchangeDeclaration(BaseModel):
@@ -23,7 +24,9 @@ class ExchangeDeclaration(BaseModel):
     bindings: List[ExchangeBinding] = Field(default_factory=list)
 
     def bind(
-        self: "ExchangeDeclaration", resource: Union[Exchange, Queue], topic: str
+        self: "ExchangeDeclaration",
+        resource: Union[Exchange, Queue, "ExchangeDeclaration", QueueDeclaration],
+        topic: str,
     ) -> "ExchangeDeclaration":
         """
         Bind a queue to the exchange.
@@ -35,6 +38,12 @@ class ExchangeDeclaration(BaseModel):
             None
         """
 
+        # unwrap declaration types to an exchange or queue
+        if isinstance(resource, ExchangeDeclaration):
+            resource = resource.exchange
+        if isinstance(resource, QueueDeclaration):
+            resource = resource.queue
+
         self.bindings.append(
             ExchangeBinding(
                 bound_resource=resource,
@@ -45,7 +54,7 @@ class ExchangeDeclaration(BaseModel):
 
     def bind_exchange(
         self: "ExchangeDeclaration",
-        exchange: Union[Exchange, str],
+        exchange: Union[Exchange, "ExchangeDeclaration", str],
         topic: str,
     ) -> "ExchangeDeclaration":
         """
@@ -60,6 +69,8 @@ class ExchangeDeclaration(BaseModel):
 
         if isinstance(exchange, str):
             exchange = Exchange(name=exchange)
+        if isinstance(exchange, ExchangeDeclaration):
+            exchange = exchange.exchange
 
         return self.bind(
             resource=exchange,
@@ -68,7 +79,7 @@ class ExchangeDeclaration(BaseModel):
 
     def bind_queue(
         self: "ExchangeDeclaration",
-        queue: Union[Queue, str],
+        queue: Union[Queue, QueueDeclaration, str],
         topic: str,
     ) -> "ExchangeDeclaration":
         """
@@ -83,6 +94,8 @@ class ExchangeDeclaration(BaseModel):
 
         if isinstance(queue, str):
             queue = Queue(name=queue)
+        if isinstance(queue, QueueDeclaration):
+            queue = queue.queue
 
         return self.bind(
             resource=queue,

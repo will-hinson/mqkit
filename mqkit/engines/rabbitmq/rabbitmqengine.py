@@ -4,7 +4,7 @@ module mqkit.engines.rabbitmqengine
 Defines the RabbitMqEngine class for connecting to RabbitMQ message brokers.
 """
 
-from typing import Any, Dict, List, Type
+from typing import Any, Dict, List, Type, override
 import uuid
 
 from pika import PlainCredentials as PikaPlainCredentials
@@ -43,6 +43,7 @@ class RabbitMqEngine(Engine):
             auto_delete=auto_delete,
         )
 
+    @override
     def declare_resources(self: "RabbitMqEngine", resources: List[Declaration]) -> None:
         # create an uninitialized connection to perform resource declarations. the uuid
         # queue will never actually get created since __enter__() isn't called

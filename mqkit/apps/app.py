@@ -10,7 +10,7 @@ from logging import Logger
 from typing import Callable, Dict, List, Optional, Union
 
 from .concurrencymode import ConcurrencyMode
-from ..declarations import Declaration, ExchangeDeclaration
+from ..declarations import Declaration, ExchangeDeclaration, QueueDeclaration
 from ..endpoints import Endpoint, EndpointFactory, QueueEndpoint
 from ..endpoints.config import QueueEndpointConfig
 from ..engines import Engine
@@ -34,7 +34,7 @@ class App:
     _codec_type: CodecType
     _concurrency_mode: ConcurrencyMode
     _coordinator: Optional[Coordinator] = None
-    _declarations: List[Declaration] = []
+    _declarations: List[Declaration]
     _endpoints: List[Endpoint] = []
     _event_functions: Dict[AppEventType, Callable] = {}
     _logger: Logger
@@ -47,6 +47,7 @@ class App:
         logger: Optional[Logger] = None,
     ) -> None:
         self._concurrency_mode = ConcurrencyMode(concurrency_mode)
+        self._declarations = []
         self._endpoints = []
         self._codec_type = CodecType(codec)
 
@@ -90,11 +91,22 @@ class App:
         if self._started:
             raise RuntimeError("Cannot declare resources after the app has started")
 
+        declaration: Declaration
         if isinstance(resource, Exchange):
-            declaration: ExchangeDeclaration = ExchangeDeclaration(
+            declaration = ExchangeDeclaration(
                 exchange=Exchange(
                     name=resource.name,
                     type=resource.type,
+                    persistent=resource.persistent,
+                    auto_delete=resource.auto_delete,
+                ),
+            )
+            self._declarations.append(declaration)
+            return declaration
+        if isinstance(resource, Queue):
+            declaration = QueueDeclaration(
+                queue=Queue(
+                    name=resource.name,
                     persistent=resource.persistent,
                     auto_delete=resource.auto_delete,
                 ),
@@ -125,7 +137,7 @@ class App:
             None
         """
 
-        return self.declare(
+        declaration: Declaration = self.declare(
             Exchange(
                 name=name,
                 type=type,
@@ -133,6 +145,12 @@ class App:
                 auto_delete=auto_delete,
             )
         )
+        if not isinstance(declaration, ExchangeDeclaration):  # pragma: no cover
+            raise TypeError(
+                "Declared exchange did not return ExchangeDeclaration instance"
+            )
+
+        return declaration
 
     def _handle_event(self: "App", event_type: AppEventType) -> None:
         func: Optional[Callable] = self._event_functions.get(event_type)

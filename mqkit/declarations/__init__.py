@@ -8,9 +8,13 @@ __all__ = [
     "Declaration",
     "ExchangeBinding",
     "ExchangeDeclaration",
+    "QueueDeclaration",
 ]
+
+from typing import Union
 
 from .exchangebinding import ExchangeBinding
 from .exchangedeclaration import ExchangeDeclaration
+from .queuedeclaration import QueueDeclaration
 
-Declaration = ExchangeDeclaration
+Declaration = Union[ExchangeDeclaration, QueueDeclaration]

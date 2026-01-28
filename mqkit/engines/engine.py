@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from yarl import URL
 
 from ..connections import Connection
-from ..declarations import ExchangeDeclaration
+from ..declarations import Declaration
 
 
 class Engine(BaseModel, metaclass=ABCMeta):
@@ -47,7 +47,7 @@ class Engine(BaseModel, metaclass=ABCMeta):
         raise NotImplementedError()
 
     @abstractmethod
-    def declare_resources(self: "Engine", resources: List[ExchangeDeclaration]) -> None:
+    def declare_resources(self: "Engine", resources: List[Declaration]) -> None:
         """
         Declare the necessary resources (exchanges, queues, bindings) for the engine.
 

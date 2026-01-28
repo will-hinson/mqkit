@@ -22,7 +22,7 @@ from .amqpconsumethread import AmqpConsumeThread
 from .amqpmessage import AmqpMessage
 from .amqpsentinel import AmqpSentinel
 from ..connection import Connection
-from ...declarations import Declaration, ExchangeDeclaration
+from ...declarations import Declaration, ExchangeDeclaration, QueueDeclaration
 from ...errors import ShutdownRequested
 from ...messaging import (
     Attributes,
@@ -169,7 +169,10 @@ class AmqpConnection(Connection, BaseModel):
         if self._connection is None or self._channel is None:  # pragma: no cover
             raise RuntimeError("AMQP channel is not established")
 
-        self._declare_exchange(exchange_declaration.exchange, thread_local=True)
+        self._declare_exchange(
+            exchange_declaration.exchange,
+            thread_local=True,
+        )
 
         for binding in exchange_declaration.bindings:
             if isinstance(binding.bound_resource, Queue):
@@ -201,6 +204,12 @@ class AmqpConnection(Connection, BaseModel):
             for resource in resources:
                 if isinstance(resource, ExchangeDeclaration):
                     self._declare_exchange_with_bindings(resource)
+                    continue
+                if isinstance(resource, QueueDeclaration):
+                    self._declare_queue(
+                        resource.queue,
+                        thread_local=True,
+                    )
                     continue
 
                 raise NotImplementedError(  # pragma: no cover

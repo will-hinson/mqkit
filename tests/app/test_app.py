@@ -1,7 +1,9 @@
 from threading import Thread
 from typing import Set
+import uuid
 
-from mqkit import App, create_engine
+from mqkit import App, Queue, create_engine
+from mqkit.declarations.queuedeclaration import QueueDeclaration
 from mqkit.engines.rabbitmq import RabbitMqEngine
 from mqkit.errors import FunctionTypeError
 
@@ -153,6 +155,10 @@ def test_app_declare_exchange(rabbitmq_engine: RabbitMqEngine) -> None:
     with ManagedQueue("test_queue") as mq1, ManagedQueue("another_test_queue") as mq2:
         mq1.define()
         mq2.define()
+        wait_to_assert(
+            lambda: mq1.exists and mq2.exists,
+            timeout=ASSERT_TIMEOUT,
+        )
 
         app.exchange("another_test_exchange", type="direct")
 
@@ -216,3 +222,92 @@ def test_app_declare_bad_type() -> None:
 
     with pytest.raises(TypeError):
         app.declare(resource=123456)  # type: ignore
+
+
+def test_app_declare_queue(rabbitmq_engine: RabbitMqEngine) -> None:
+    app: App = App()
+
+    exchange_id: str = str(uuid.uuid4())
+    queue_id: str = str(uuid.uuid4())
+
+    exchange_declaration_1 = app.exchange(
+        name=exchange_id + "_1",
+        type="fanout",
+    )
+    exchange_declaration_2 = app.exchange(
+        name=exchange_id + "_2",
+        type="fanout",
+    )
+    queue_declaration: QueueDeclaration = app.declare(
+        Queue(
+            name=queue_id,
+            persistent=True,
+        ),
+    )  # type: ignore
+    queue_declaration_2: QueueDeclaration = app.declare(
+        Queue(
+            name=queue_id + "_2",
+            persistent=True,
+        ),
+    )  # type: ignore
+    app.exchange(
+        exchange_id,
+        type="fanout",
+    ).bind_queue(
+        queue_declaration,
+        topic="test.topic",
+    ).bind_exchange(
+        exchange_declaration_1,
+        topic="exchange.topic",
+    ).bind(
+        exchange_declaration_2,
+        topic="another.exchange.topic",
+    ).bind(
+        queue_declaration_2,
+        topic="another.test.topic",
+    )
+
+    app_thread: Thread = Thread(
+        target=app.run,
+        args=(rabbitmq_engine,),
+        daemon=True,
+    )
+    app_thread.start()
+
+    for resource_name in [
+        exchange_id,
+        exchange_declaration_1.exchange.name,
+        exchange_declaration_2.exchange.name,
+    ]:
+        wait_to_assert(
+            lambda: requests.get(
+                build_management_url(f"/api/exchanges/%2F/{resource_name}"),
+                auth=(TEST_USERNAME, TEST_PASSWORD),
+            ).ok,
+            timeout=ASSERT_TIMEOUT,
+        )
+    for resource_name in [queue_id, queue_id + "_2"]:
+        wait_to_assert(
+            lambda: requests.get(
+                build_management_url(f"/api/queues/%2F/{resource_name}"),
+                auth=(TEST_USERNAME, TEST_PASSWORD),
+            ).ok,
+            timeout=ASSERT_TIMEOUT,
+        )
+
+    for resource_name in [queue_id, queue_id + "_2"]:
+        response = requests.delete(
+            build_management_url(f"/api/queues/%2F/{resource_name}"),
+            auth=(TEST_USERNAME, TEST_PASSWORD),
+        )
+        assert response.ok
+    for resource_name in [
+        exchange_id,
+        exchange_declaration_1.exchange.name,
+        exchange_declaration_2.exchange.name,
+    ]:
+        response = requests.delete(
+            build_management_url(f"/api/exchanges/%2F/{resource_name}"),
+            auth=(TEST_USERNAME, TEST_PASSWORD),
+        )
+        assert response.ok
