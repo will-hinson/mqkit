@@ -9,7 +9,7 @@ the RabbitMqEngine class
 import functools
 from queue import Queue as ProcessQueue
 import threading
-from typing import ClassVar, Optional, Set
+from typing import ClassVar, List, Optional, Set
 
 from pika import BasicProperties, ConnectionParameters, PlainCredentials, SSLOptions
 from pika import BlockingConnection as PikaBlockingConnection
@@ -22,6 +22,7 @@ from .amqpconsumethread import AmqpConsumeThread
 from .amqpmessage import AmqpMessage
 from .amqpsentinel import AmqpSentinel
 from ..connection import Connection
+from ...declarations import Declaration, ExchangeDeclaration
 from ...errors import ShutdownRequested
 from ...messaging import (
     Attributes,
@@ -160,6 +161,26 @@ class AmqpConnection(Connection, BaseModel):
             declare()
 
         self._declared_queues.add(queue.name)
+
+    def declare_resources(self: "AmqpConnection", resources: List[Declaration]) -> None:
+        if self._connection is None or self._channel is None:
+            self._connection = self._make_connection()
+            self._channel = self._connection.channel()
+
+        try:
+            for resource in resources:
+                if isinstance(resource, ExchangeDeclaration):
+                    self._declare_exchange(resource.exchange, thread_local=True)
+                    continue
+
+                raise NotImplementedError(  # pragma: no cover
+                    f"Declaring resources of type {type(resource).__name__} is not implemented"
+                )
+        finally:
+            if self._connection is not None and not self._connection.is_closed:
+                self._connection.close()
+                self._connection = None
+                self._channel = None
 
     def _enqueue_message(
         self: "AmqpConnection",

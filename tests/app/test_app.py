@@ -5,6 +5,7 @@ from mqkit.engines.rabbitmq import RabbitMqEngine
 from mqkit.errors import FunctionTypeError
 
 import pytest
+import requests
 
 from ..common import (
     ASSERT_TIMEOUT,
@@ -14,6 +15,7 @@ from ..common import (
     TEST_USERNAME,
     TEST_VHOST,
     ManagedQueue,
+    build_management_url,
     wait_to_assert,
 )
 
@@ -102,3 +104,83 @@ def test_app_stop_requires_start() -> None:
 
     with pytest.raises(RuntimeError):
         app.stop()
+
+
+def test_app_cannot_declare_after_start(rabbitmq_engine: RabbitMqEngine) -> None:
+    app: App = App()
+    assert not app.started
+
+    app_thread: Thread = Thread(target=app.run, args=(rabbitmq_engine,))
+    app_thread.start()
+
+    with pytest.raises(RuntimeError):
+
+        @app.queue("new_queue")
+        def new_queue(message, attributes):
+            return {"response": "Message processed by new_queue"}
+
+    with pytest.raises(RuntimeError):
+
+        @app.on_start
+        def on_start():
+            pass
+
+    with pytest.raises(RuntimeError):
+
+        @app.on_shutdown
+        def on_shutdown():
+            pass
+
+    with pytest.raises(RuntimeError):
+        app.exchange("new_exchange", type="fanout")
+
+    assert app.started
+    app.stop()
+    app_thread.join()
+
+
+def test_app_declare_exchange(rabbitmq_engine: RabbitMqEngine) -> None:
+    app: App = App()
+
+    response = requests.delete(
+        build_management_url("/api/exchanges/%2F/test_exchange"),
+        auth=(TEST_USERNAME, TEST_PASSWORD),
+    )
+    assert response.ok or response.status_code == 404
+
+    app.exchange(
+        "test_exchange",
+        type="fanout",
+    )
+
+    app_thread: Thread = Thread(target=app.run, args=(rabbitmq_engine,))
+    app_thread.start()
+
+    wait_to_assert(
+        lambda: requests.get(
+            build_management_url("/api/exchanges/%2F/test_exchange"),
+            auth=(TEST_USERNAME, TEST_PASSWORD),
+        ).ok,
+        timeout=ASSERT_TIMEOUT,
+    )
+    response_json = requests.get(
+        build_management_url("/api/exchanges/%2F/test_exchange"),
+        auth=(TEST_USERNAME, TEST_PASSWORD),
+    ).json()
+    assert response_json["name"] == "test_exchange"
+    assert response_json["type"] == "fanout"
+
+    app.stop()
+
+    response = requests.delete(
+        build_management_url("/api/exchanges/%2F/test_exchange"),
+        auth=(TEST_USERNAME, TEST_PASSWORD),
+    )
+    assert response.ok
+
+
+def test_app_declare_bad_type() -> None:
+    app: App = App()
+
+    with pytest.raises(TypeError):
+        app.declare(resource=123456)  # type: ignore

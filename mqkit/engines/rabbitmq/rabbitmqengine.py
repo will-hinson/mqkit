@@ -4,13 +4,15 @@ module mqkit.engines.rabbitmqengine
 Defines the RabbitMqEngine class for connecting to RabbitMQ message brokers.
 """
 
-from typing import Any, Dict, Type
+from typing import Any, Dict, List, Type
+import uuid
 
 from pika import PlainCredentials as PikaPlainCredentials
 from yarl import URL
 
 from ...connections.amqp import AmqpConnection
 from ...credentials import PlainCredentials
+from ...declarations import Declaration
 from ..engine import Engine
 from ...messaging import Queue
 
@@ -35,20 +37,20 @@ class RabbitMqEngine(Engine):
         persistent: bool = True,
         auto_delete: bool = False,
     ) -> AmqpConnection:
-        return AmqpConnection(
-            host=self.host,
-            port=self.port,
-            vhost=self.vhost,
-            credentials=PikaPlainCredentials(
-                self.credentials.username, self.credentials.password
-            ),
-            queue=Queue(
-                name=queue,
-                persistent=persistent,
-                auto_delete=auto_delete,
-            ),
-            use_ssl=self.use_amqps,
+        return self._make_connection(
+            queue=queue,
+            persistent=persistent,
+            auto_delete=auto_delete,
         )
+
+    def declare_resources(self: "RabbitMqEngine", resources: List[Declaration]) -> None:
+        # create an uninitialized connection to perform resource declarations. the uuid
+        # queue will never actually get created since __enter__() isn't called
+        self._make_connection(
+            queue=f"{uuid.uuid4()}",
+            persistent=True,
+            auto_delete=False,
+        ).declare_resources(resources)
 
     @classmethod
     def from_url(cls: Type["RabbitMqEngine"], url: URL) -> "RabbitMqEngine":
@@ -76,3 +78,24 @@ class RabbitMqEngine(Engine):
             ctor_args["port"] = 5671
 
         return RabbitMqEngine(**ctor_args)
+
+    def _make_connection(
+        self: "RabbitMqEngine",
+        queue: str,
+        persistent: bool,
+        auto_delete: bool,
+    ) -> AmqpConnection:
+        return AmqpConnection(
+            host=self.host,
+            port=self.port,
+            vhost=self.vhost,
+            credentials=PikaPlainCredentials(
+                self.credentials.username, self.credentials.password
+            ),
+            queue=Queue(
+                name=queue,
+                persistent=persistent,
+                auto_delete=auto_delete,
+            ),
+            use_ssl=self.use_amqps,
+        )
