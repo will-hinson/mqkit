@@ -5,6 +5,7 @@ Defines the ExchangeBinding class representing a binding between an exchange or 
 a topic (or routing key in RabbitMQ)
 """
 
+from typing import Union
 from pydantic import BaseModel
 
 from ..messaging import Exchange, Queue
@@ -17,5 +18,5 @@ class ExchangeBinding(BaseModel):
     Represents a binding between an exchange or queue and a topic.
     """
 
-    bound_resource: Exchange | Queue
+    bound_resource: Union[Exchange, Queue]
     topic: str

@@ -162,6 +162,36 @@ class AmqpConnection(Connection, BaseModel):
 
         self._declared_queues.add(queue.name)
 
+    def _declare_exchange_with_bindings(
+        self: "AmqpConnection",
+        exchange_declaration: ExchangeDeclaration,
+    ) -> None:
+        if self._connection is None or self._channel is None:  # pragma: no cover
+            raise RuntimeError("AMQP channel is not established")
+
+        self._declare_exchange(exchange_declaration.exchange, thread_local=True)
+
+        for binding in exchange_declaration.bindings:
+            if isinstance(binding.bound_resource, Queue):
+                self._channel.queue_bind(
+                    queue=binding.bound_resource.name,
+                    exchange=exchange_declaration.exchange.name,
+                    routing_key=binding.topic,
+                )
+                continue
+            if isinstance(binding.bound_resource, Exchange):
+                self._channel.exchange_bind(
+                    destination=binding.bound_resource.name,
+                    source=exchange_declaration.exchange.name,
+                    routing_key=binding.topic,
+                )
+                continue
+
+            raise NotImplementedError(  # pragma: no cover
+                f"Binding resources of type {type(binding.bound_resource).__name__} "
+                "is not implemented"
+            )
+
     def declare_resources(self: "AmqpConnection", resources: List[Declaration]) -> None:
         if self._connection is None or self._channel is None:
             self._connection = self._make_connection()
@@ -170,7 +200,7 @@ class AmqpConnection(Connection, BaseModel):
         try:
             for resource in resources:
                 if isinstance(resource, ExchangeDeclaration):
-                    self._declare_exchange(resource.exchange, thread_local=True)
+                    self._declare_exchange_with_bindings(resource)
                     continue
 
                 raise NotImplementedError(  # pragma: no cover

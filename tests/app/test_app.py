@@ -1,4 +1,5 @@
 from threading import Thread
+from typing import Set
 
 from mqkit import App, create_engine
 from mqkit.engines.rabbitmq import RabbitMqEngine
@@ -142,41 +143,72 @@ def test_app_cannot_declare_after_start(rabbitmq_engine: RabbitMqEngine) -> None
 def test_app_declare_exchange(rabbitmq_engine: RabbitMqEngine) -> None:
     app: App = App()
 
-    response = requests.delete(
-        build_management_url("/api/exchanges/%2F/test_exchange"),
-        auth=(TEST_USERNAME, TEST_PASSWORD),
-    )
-    assert response.ok or response.status_code == 404
-
-    app.exchange(
-        "test_exchange",
-        type="fanout",
-    )
-
-    app_thread: Thread = Thread(target=app.run, args=(rabbitmq_engine,))
-    app_thread.start()
-
-    wait_to_assert(
-        lambda: requests.get(
+    for exchange_name in ["test_exchange", "another_test_exchange"]:
+        response = requests.delete(
             build_management_url("/api/exchanges/%2F/test_exchange"),
             auth=(TEST_USERNAME, TEST_PASSWORD),
-        ).ok,
-        timeout=ASSERT_TIMEOUT,
-    )
-    response_json = requests.get(
-        build_management_url("/api/exchanges/%2F/test_exchange"),
-        auth=(TEST_USERNAME, TEST_PASSWORD),
-    ).json()
-    assert response_json["name"] == "test_exchange"
-    assert response_json["type"] == "fanout"
+        )
+        assert response.ok or response.status_code == 404
 
-    app.stop()
+    with ManagedQueue("test_queue") as mq1, ManagedQueue("another_test_queue") as mq2:
+        mq1.define()
+        mq2.define()
 
-    response = requests.delete(
-        build_management_url("/api/exchanges/%2F/test_exchange"),
-        auth=(TEST_USERNAME, TEST_PASSWORD),
-    )
-    assert response.ok
+        app.exchange("another_test_exchange", type="direct")
+
+        app.exchange(
+            "test_exchange",
+            type="fanout",
+        ).bind_queue(
+            mq1.name,
+            topic="test.topic",
+        ).bind_queue(
+            mq2.name,
+            topic="another.test.topic",
+        ).bind_exchange(
+            "another_test_exchange",
+            topic="exchange.topic",
+        )
+
+        app_thread: Thread = Thread(
+            target=app.run,
+            args=(rabbitmq_engine,),
+            daemon=True,
+        )
+        app_thread.start()
+
+        for exchange_name in ["test_exchange", "another_test_exchange"]:
+            wait_to_assert(
+                lambda: requests.get(
+                    build_management_url(f"/api/exchanges/%2F/{exchange_name}"),
+                    auth=(TEST_USERNAME, TEST_PASSWORD),
+                ).ok,
+                timeout=ASSERT_TIMEOUT,
+            )
+
+        response_json = requests.get(
+            build_management_url("/api/exchanges/%2F/test_exchange"),
+            auth=(TEST_USERNAME, TEST_PASSWORD),
+        ).json()
+        assert response_json["name"] == "test_exchange"
+        assert response_json["type"] == "fanout"
+
+        response_json = requests.get(
+            build_management_url("/api/exchanges/%2F/test_exchange/bindings/source"),
+            auth=(TEST_USERNAME, TEST_PASSWORD),
+        ).json()
+        sources: Set[str] = {binding["destination"] for binding in response_json}
+        for resource_name in [mq1.name, mq2.name, "another_test_exchange"]:
+            assert resource_name in sources
+
+        app.stop()
+
+        for exchange_name in ["test_exchange", "another_test_exchange"]:
+            response = requests.delete(
+                build_management_url(f"/api/exchanges/%2F/{exchange_name}"),
+                auth=(TEST_USERNAME, TEST_PASSWORD),
+            )
+            assert response.ok
 
 
 def test_app_declare_bad_type() -> None:

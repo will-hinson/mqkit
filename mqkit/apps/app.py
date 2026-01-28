@@ -111,7 +111,7 @@ class App:
         type: Union[ExchangeType, str],
         persistent: bool = True,
         auto_delete: bool = False,
-    ) -> None:
+    ) -> ExchangeDeclaration:
         """
         Declares an exchange resource for the application.
 
@@ -125,7 +125,7 @@ class App:
             None
         """
 
-        self.declare(
+        return self.declare(
             Exchange(
                 name=name,
                 type=type,
