@@ -133,5 +133,5 @@ def test_queue_endpoint_with_forward_topic() -> None:
         )
     )
     assert result is not None
-    assert result.forward_target == "response-topic"
+    assert result.forward_target.name == "response-topic"
     assert result.message.data == b'{"response": "ok"}'
