@@ -18,6 +18,7 @@ class Response(BaseModel):
 
     content: Any
     headers: Dict[str, str] = Field(default_factory=dict)
+    topic: Optional[str] = None
 
     _serialized_data: Optional[bytes] = PrivateAttr(default=None)
 
@@ -25,10 +26,12 @@ class Response(BaseModel):
         self: "Response",
         content: Any,
         headers: Optional[Dict[str, str]] = None,
+        topic: Optional[str] = None,
     ) -> None:
         super().__init__(
             content=content,
             headers=headers or {},
+            topic=topic,
         )
 
     @property

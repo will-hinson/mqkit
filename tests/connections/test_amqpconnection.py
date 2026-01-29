@@ -5,8 +5,8 @@ from requests.exceptions import JSONDecodeError
 from slugify import slugify
 from mqkit import create_engine
 from mqkit.connections.amqp import AmqpConnection
-from mqkit.endpoints.config.queueendpointconfig import QueueEndpointConfig
-from mqkit.endpoints.queueendpoint import QueueEndpoint
+from mqkit.endpoints import QueueEndpoint
+from mqkit.endpoints.config import QueueEndpointConfig
 from mqkit.engines import RabbitMqEngine
 from mqkit.errors import ShutdownRequested
 from mqkit.messaging import Exchange, Forward, Queue, QueueMessage

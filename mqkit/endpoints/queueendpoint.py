@@ -39,6 +39,10 @@ class QueueEndpoint(Endpoint):
 
         if not response.has_data:  # pragma: no cover
             raise ValueError("Cannot forward response with no data")
+        if response.topic is not None and self._config.forward_to.topic is not None:
+            raise ValueError(
+                "Cannot forward response with topic when forward_to destination also has a topic"
+            )
 
         if isinstance(self._config.forward_to, Destination):
             return Forward(
@@ -52,7 +56,7 @@ class QueueEndpoint(Endpoint):
                         ),
                         forwarded=True,
                         origin_queue=self._config.queue.name,
-                        topic=self._config.forward_to.topic,
+                        topic=response.topic or self._config.forward_to.topic,
                     ),
                 ),
             )
