@@ -4,19 +4,21 @@ module mqkit.messaging.response
 Defines the Response class for handling message responses.
 """
 
-from typing import Any, Dict, Optional
+from typing import Dict, Generic, Optional, TypeVar
 
 from pydantic import BaseModel, Field, PrivateAttr
 
+T = TypeVar("T", bound=BaseModel)
 
-class Response(BaseModel):
+
+class Response(BaseModel, Generic[T]):
     """
     class Response
 
     Represents a response message with data and optional headers.
     """
 
-    content: Any
+    content: T
     headers: Dict[str, str] = Field(default_factory=dict)
     topic: Optional[str] = None
 
@@ -24,7 +26,7 @@ class Response(BaseModel):
 
     def __init__(
         self: "Response",
-        content: Any,
+        content: T,
         headers: Optional[Dict[str, str]] = None,
         topic: Optional[str] = None,
     ) -> None:

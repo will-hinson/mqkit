@@ -10,9 +10,21 @@ It does not enforce any constraints on parameters
 """
 
 import inspect
-from typing import Any, Callable, Dict, get_origin, Optional, Type, Union
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Tuple,
+    get_args,
+    get_origin,
+    Optional,
+    Type,
+    Union,
+)
 
 from pydantic import BaseModel
+
+from mqkit.messaging.response import Response
 
 from ..errors import FunctionSignatureError, SerializeError
 from ..marshal.codecs import Codec
@@ -82,6 +94,10 @@ class ReturnTypeSerializer(Serializer):
         if return_type is None:
             return self._serialize_none
         if isinstance(signature.return_annotation, type) and issubclass(
+            return_type, Response
+        ):
+            return self._get_return_func_for_response_type(return_type)
+        if isinstance(signature.return_annotation, type) and issubclass(
             return_type, BaseModel
         ):
             return self._serialize_base_model
@@ -89,8 +105,33 @@ class ReturnTypeSerializer(Serializer):
             return self._serialize_dict
 
         raise FunctionSignatureError(
-            "Return type annotation must be a subclass of BaseModel or Dict"
+            "Return type annotation must be a subclass of BaseModel, Dict, Response, or None"
         )  # pragma: no cover
+
+    def _get_return_func_for_response_type(
+        self: "ReturnTypeSerializer",
+        return_type: Any,
+    ) -> Callable[[Any], Any]:
+        type_args: Tuple = (
+            return_type.__pydantic_generic_metadata__["args"]
+            if hasattr(return_type, "__pydantic_generic_metadata__")
+            and "args" in return_type.__pydantic_generic_metadata__
+            else tuple()
+        )
+        if len(type_args) != 1:
+            raise FunctionSignatureError(
+                "Response return type annotation must have exactly one content type"
+            )
+
+        response_content_type: Type = type_args[0]
+        if not issubclass(response_content_type, BaseModel):
+            raise FunctionSignatureError(
+                "Response return type annotation must have a BaseModel content type"
+            )
+
+        # extract the BaseModel type from the Response generic
+        self._return_type = response_content_type
+        return self._serialize_base_model
 
     @property
     def return_type(self: "ReturnTypeSerializer") -> Any:
