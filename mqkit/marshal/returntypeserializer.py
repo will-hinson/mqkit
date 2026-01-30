@@ -126,9 +126,10 @@ class ReturnTypeSerializer(Serializer):
             and "args" in return_type.__pydantic_generic_metadata__
             else tuple()
         )
-        if len(type_args) != 1:
+        if len(type_args) != 1:  # pragma: no cover
             raise FunctionSignatureError(
-                "Response return type annotation must have exactly one content type"
+                "Response return type annotation must have exactly one content type "
+                f"({len(type_args)} found)"
             )
 
         response_content_type: Type = type_args[0]

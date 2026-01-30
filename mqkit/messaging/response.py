@@ -8,7 +8,7 @@ from typing import Dict, Generic, Optional, TypeVar
 
 from pydantic import BaseModel, Field, PrivateAttr
 
-T = TypeVar("T", bound=BaseModel)
+T = TypeVar("T")
 
 
 class Response(BaseModel, Generic[T]):
