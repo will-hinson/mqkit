@@ -10,7 +10,7 @@ from pydantic import BaseModel
 
 from ..endpoint import EndpointCallback
 from ...marshal.codecs import CodecType
-from ...messaging import Exchange, Queue
+from ...messaging import Destination, Exchange, Queue
 
 
 class QueueEndpointConfig(BaseModel):
@@ -23,12 +23,12 @@ class QueueEndpointConfig(BaseModel):
     queue: Queue
     target: EndpointCallback
     codec_type: CodecType
-    forward_to: Optional[Union[Queue, Exchange]] = None
+    forward_to: Optional[Destination] = None
 
     def __init__(
         self: "QueueEndpointConfig",
         codec_type: Union[CodecType, str],
-        forward_to: Optional[Union[str, Queue, Exchange]] = None,
+        forward_to: Optional[Union[str, Queue, Exchange, Destination]] = None,
         **data,
     ) -> None:  # pragma: no cover
         if isinstance(codec_type, str):
@@ -38,5 +38,8 @@ class QueueEndpointConfig(BaseModel):
                 data["forward_to"] = Queue(name=forward_to)
             else:
                 data["forward_to"] = forward_to
+
+            if isinstance(data["forward_to"], (Queue, Exchange)):
+                data["forward_to"] = Destination(resource=data["forward_to"])
 
         super().__init__(**data)

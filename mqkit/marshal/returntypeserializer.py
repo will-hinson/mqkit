@@ -10,9 +10,22 @@ It does not enforce any constraints on parameters
 """
 
 import inspect
-from typing import Any, Callable, Dict, get_origin, Optional, Type, Union
+from types import UnionType
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Tuple,
+    get_args,
+    get_origin,
+    Optional,
+    Type,
+    Union,
+)
 
 from pydantic import BaseModel
+
+from mqkit.messaging.response import Response
 
 from ..errors import FunctionSignatureError, SerializeError
 from ..marshal.codecs import Codec
@@ -79,8 +92,19 @@ class ReturnTypeSerializer(Serializer):
         return_type: Any,
         signature: inspect.Signature,
     ) -> Callable[[Any], Any]:
+        # check if the return type is Optional
+        if get_origin(return_type) in (Union, UnionType):
+            return self._get_return_func_for_union_type(
+                return_type,
+                signature=signature,
+            )
+
         if return_type is None:
             return self._serialize_none
+        if isinstance(signature.return_annotation, type) and issubclass(
+            return_type, Response
+        ):
+            return self._get_return_func_for_response_type(return_type)
         if isinstance(signature.return_annotation, type) and issubclass(
             return_type, BaseModel
         ):
@@ -89,8 +113,72 @@ class ReturnTypeSerializer(Serializer):
             return self._serialize_dict
 
         raise FunctionSignatureError(
-            "Return type annotation must be a subclass of BaseModel or Dict"
+            "Return type annotation must be a subclass of BaseModel, Dict, Response, or None"
         )  # pragma: no cover
+
+    def _get_return_func_for_response_type(
+        self: "ReturnTypeSerializer",
+        return_type: Any,
+    ) -> Callable[[Any], Any]:
+        type_args: Tuple = (
+            return_type.__pydantic_generic_metadata__["args"]
+            if hasattr(return_type, "__pydantic_generic_metadata__")
+            and "args" in return_type.__pydantic_generic_metadata__
+            else tuple()
+        )
+        if len(type_args) != 1:  # pragma: no cover
+            raise FunctionSignatureError(
+                "Response return type annotation must have exactly one content type "
+                f"({len(type_args)} found)"
+            )
+
+        response_content_type: Type = type_args[0]
+        if not issubclass(response_content_type, BaseModel):
+            raise FunctionSignatureError(
+                "Response return type annotation must have a BaseModel content type"
+            )
+
+        # extract the BaseModel type from the Response generic
+        self._return_type = response_content_type
+        return self._serialize_base_model
+
+    def _get_return_func_for_union_type(
+        self: "ReturnTypeSerializer",
+        return_type: Any,
+        signature: inspect.Signature,
+    ) -> Callable[[Any], Any]:
+        type_args: Tuple = get_args(return_type)
+
+        # Check for Optional[T] (i.e., Union[T, None])
+        if len(type_args) == 2 and type_args[1] is type(None):
+            return self._make_return_func_optional(
+                type_args,
+                signature=signature,
+            )
+
+        raise FunctionSignatureError(
+            f"Return type annotation {return_type} is not supported"
+        )  # pragma: no cover
+
+    def _make_return_func_optional(
+        self: "ReturnTypeSerializer",
+        type_args: Tuple,
+        signature: inspect.Signature,
+    ) -> Callable[[Any], Any]:
+        # first, get the base return func for the non-None type in the Optional
+        signature = signature.replace(return_annotation=type_args[0])
+        non_none_return_func: Callable = self._get_return_func_for_type(
+            type_args[0],
+            signature=signature,
+        )
+
+        def optional_return_func(data: Any) -> Any:
+            if data is None:
+                return None
+
+            return non_none_return_func(data)
+
+        return optional_return_func
 
     @property
     def return_type(self: "ReturnTypeSerializer") -> Any:

@@ -236,14 +236,15 @@ class Endpoint(metaclass=ABCMeta):
                 serializer.deserialize(message),
                 attributes,
             )
-            if result is None:
-                return None
             if not isinstance(result, Response):
                 result = Response(content=result)
 
             # serialize the content into byte data and return the Response. if the serializer
             # returns None, Response.data will raise an error
-            result.data = serializer.serialize(result.content)
+            serialized_data: Optional[bytes] = serializer.serialize(result.content)
+            if serialized_data is None:
+                return None
+            result.data = serialized_data
             return result
 
         return _deserialize_wrapper
