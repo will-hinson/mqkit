@@ -37,7 +37,7 @@ class Connection(metaclass=ABCMeta):
         raise NotImplementedError()
 
     @abstractmethod
-    def acknowledge_success(self: "Connection", message: QueueMessage) -> None:
+    def acknowledge_success(self: "Connection", message: "QueueMessage") -> None:
         """
         Acknowledge the processing of a message.
 
