@@ -44,7 +44,8 @@ class EndpointFactory:
         Converts a forward target to a Destination object.
 
         Args:
-            forward_to (Optional[Union[str, Queue, Exchange, Destination]]): The forward target to convert.
+            forward_to (Optional[Union[str, Queue, Exchange, Destination]]): The forward target
+                to convert.
 
         Returns:
             Optional[Destination]: The converted Destination object, or None if the input is None.

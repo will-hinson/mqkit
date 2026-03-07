@@ -1,3 +1,12 @@
+"""
+module mqkit.messaging.retry.immediateretrystrategy
+
+This module defines the ImmediateRetryStrategy class, which implements a retry strategy that
+immediately retries failed messages up to a specified number of times. If the message continues
+to fail after exceeding the maximum retries, it can be forwarded to an optional dead letter
+destination for further analysis or handling.
+"""
+
 import json
 import traceback
 from typing import List, Optional, override
@@ -14,6 +23,14 @@ from .retrystrategy import RetryStrategy
 
 
 class ImmediateRetryStrategy(RetryStrategy):
+    """
+    class ImmediateRetryStrategy
+
+    Implements a retry strategy that immediately retries failed messages up to a specified number
+    of times. If the message continues to fail after exceeding the maximum retries, it can be
+    forwarded to an optional dead letter destination for further analysis or handling.
+    """
+
     # pylint: disable=too-few-public-methods
 
     _retries: int
@@ -26,6 +43,7 @@ class ImmediateRetryStrategy(RetryStrategy):
     ) -> None:
         super().__init__()
 
+        # pylint: disable=import-outside-toplevel
         from ...endpoints import EndpointFactory
 
         self._retries = retries
@@ -99,8 +117,8 @@ class ImmediateRetryStrategy(RetryStrategy):
             )
         else:
             self._logger.info(
-                f"Forwarding failed message to dead letter destination: "
-                f"{self._dead_letter_destination}"
+                "Forwarding failed message to dead letter destination: %s",
+                self._dead_letter_destination,
             )
 
             # set up the message with the appropriate dlq context
@@ -128,8 +146,9 @@ class ImmediateRetryStrategy(RetryStrategy):
         self: "ImmediateRetryStrategy", context: RetryContext
     ) -> None:
         self._logger.error(
-            f"Message handling failed with marshal error: {context.exception}. "
-            "Will not retry due to malformed message data"
+            "Message handling failed with marshal error: %s. "
+            "Will not retry due to malformed message data",
+            context.exception,
         )
         self._forward_to_dlq(context)
         context.connection.acknowledge_failure(context.message)
@@ -138,10 +157,12 @@ class ImmediateRetryStrategy(RetryStrategy):
         self: "ImmediateRetryStrategy", context: RetryContext
     ) -> None:
         self._logger.info(
-            f"Message handling failed with exception: {context.exception}. "
-            f"Exceeded maximum retry count of {self._retries} (current retry count: "
-            f"{context.message.attributes.retry_count}). Acknowledging failure and "
-            "will not retry"
+            "Message handling failed with exception: %s. "
+            "Exceeded maximum retry count of %s (current retry count: %s). "
+            "Acknowledging failure and will not retry",
+            context.exception,
+            self._retries,
+            context.message.attributes.retry_count,
         )
 
         # forward a copy of the message to the dead letter destination if configured
@@ -152,11 +173,12 @@ class ImmediateRetryStrategy(RetryStrategy):
     def _submit_for_retry(
         self: "ImmediateRetryStrategy", context: RetryContext
     ) -> None:
-        # submit the message for retry by requeuing it with an incremented retry count in the headers
+        # submit the message for retry by requeuing it with an incremented retry count
+        # in the headers
         self._append_exception_to_history(context)
         context.message.attributes.retry_count += 1
         context.connection.submit_message(context.message)
         self._logger.info(
-            "Requeued message for immediate retry (current retry count: "
-            f"{context.message.attributes.retry_count})"
+            "Requeued message for immediate retry (current retry count: %s)",
+            context.message.attributes.retry_count,
         )
