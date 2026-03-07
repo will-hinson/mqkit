@@ -80,6 +80,7 @@ class ImmediateRetryStrategy(RetryStrategy):
         exception_history.append(
             ExceptionHistoryEntry(
                 exception_type=type(context.exception).__qualname__,
+                exception_module=type(context.exception).__module__,
                 exception_message=str(context.exception),
                 traceback=traceback.format_exception(context.exception),
                 retry_count=context.message.attributes.retry_count,
