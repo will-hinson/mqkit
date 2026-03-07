@@ -1,6 +1,6 @@
 import json
 import traceback
-from typing import Any, Dict, List, Optional, override
+from typing import List, Optional, override
 
 from pydantic import ValidationError
 
@@ -152,8 +152,8 @@ class ImmediateRetryStrategy(RetryStrategy):
         self: "ImmediateRetryStrategy", context: RetryContext
     ) -> None:
         # submit the message for retry by requeuing it with an incremented retry count in the headers
-        context.message.attributes.retry_count += 1
         self._append_exception_to_history(context)
+        context.message.attributes.retry_count += 1
         context.connection.submit_message(context.message)
         self._logger.info(
             "Requeued message for immediate retry (current retry count: "

@@ -414,7 +414,8 @@ class AmqpConnection(Connection, BaseModel):
                 headers={
                     key: str(value)
                     for key, value in (message.properties.headers or {}).items()
-                    if key.startswith("x-mqkit-") and key != "x-mqkit-exception-history"
+                    if not key.startswith("x-mqkit-")
+                    or key == "x-mqkit-exception-history"
                 },
                 platform={
                     "channel": {
