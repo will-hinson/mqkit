@@ -88,7 +88,7 @@ class Endpoint(metaclass=ABCMeta):
 
     @property
     @abstractmethod
-    def is_auto_delete(self: "Endpoint") -> bool:
+    def is_auto_delete(self: "Endpoint") -> bool:  # pragma: no cover
         """
         Property that indicates whether the endpoint is auto-delete.
 
@@ -102,7 +102,7 @@ class Endpoint(metaclass=ABCMeta):
 
     @property
     @abstractmethod
-    def is_persistent(self: "Endpoint") -> bool:
+    def is_persistent(self: "Endpoint") -> bool:  # pragma: no cover
         """
         Property that indicates whether the endpoint is persistent.
 

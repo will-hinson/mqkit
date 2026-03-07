@@ -34,7 +34,9 @@ class RetryStrategy(metaclass=ABCMeta):
         )
 
     @abstractmethod
-    def handle_failure(self: "RetryStrategy", context: RetryContext) -> None:
+    def handle_failure(
+        self: "RetryStrategy", context: RetryContext
+    ) -> None:  # pragma: no cover
         """
         This method is called when a message handler fails to process a message. The retry strategy
         is responsible for handling the failure and determining whether to retry the message or not.
