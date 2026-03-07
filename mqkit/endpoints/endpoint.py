@@ -5,7 +5,6 @@ Abstract base class for message queue endpoints.
 """
 
 from abc import ABCMeta, abstractmethod
-import asyncio
 import functools
 import inspect
 from typing import Any, Callable, Dict, NoReturn, Optional, Type, TypeAlias, Union
@@ -27,6 +26,7 @@ from ..marshal.codecs import (
     YamlCodec,
 )
 from ..messaging import Forward, QueueMessage, Response
+from ..messaging.retry import RetryStrategy
 
 _codec_type_to_class: Dict[CodecType, Type[Codec]] = {
     CodecType.JSON: JsonCodec,
@@ -51,7 +51,7 @@ class Endpoint(metaclass=ABCMeta):
     _target: Callable[..., Optional[Response]]
 
     def __init__(self: "Endpoint", target: Callable, codec_type: CodecType) -> None:
-        self._is_async = asyncio.iscoroutinefunction(target)
+        self._is_async = inspect.iscoroutinefunction(target)
         self._target = self._wrap_with_decode(
             target,
             codec_type=codec_type,
@@ -87,6 +87,7 @@ class Endpoint(metaclass=ABCMeta):
         return self._is_async
 
     @property
+    @abstractmethod
     def is_auto_delete(self: "Endpoint") -> bool:
         """
         Property that indicates whether the endpoint is auto-delete.
@@ -100,6 +101,7 @@ class Endpoint(metaclass=ABCMeta):
         )
 
     @property
+    @abstractmethod
     def is_persistent(self: "Endpoint") -> bool:
         """
         Property that indicates whether the endpoint is persistent.
@@ -150,6 +152,18 @@ class Endpoint(metaclass=ABCMeta):
 
         Returns:
             str: The name of the queue.
+        """
+
+        raise NotImplementedError()  # pragma: no cover
+
+    @property
+    @abstractmethod
+    def retry_strategy(self: "Endpoint") -> RetryStrategy:
+        """
+        Property that returns the retry strategy associated with this endpoint.
+
+        Returns:
+            RetryStrategy: The retry strategy for the endpoint.
         """
 
         raise NotImplementedError()  # pragma: no cover

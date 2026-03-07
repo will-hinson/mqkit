@@ -4,7 +4,7 @@ module mqkit.apps.app
 Contains the definition of the App class for building message queue applications.
 """
 
-import asyncio
+import inspect
 import logging
 from logging import Logger
 from typing import Callable, Dict, List, Optional, Union
@@ -19,6 +19,7 @@ from ..events import AppEventType
 from ..logging import root_logger_name
 from ..marshal.codecs import CodecType
 from ..messaging import Destination, Exchange, ExchangeType, Queue
+from ..messaging.retry import NoRetryStrategy, RetryStrategy
 from ..workers import Coordinator
 from ..workers.threaded import ThreadCoordinator
 
@@ -59,7 +60,7 @@ class App:
     ) -> None:
         if not self._is_function_compatible(func):
             raise FunctionTypeError(
-                ("Async function" if asyncio.iscoroutinefunction(func) else "Function")
+                ("Async function" if inspect.iscoroutinefunction(func) else "Function")
                 + (
                     f" {func.__name__}() is not compatible with concurrency mode "
                     f"'{self.concurrency_mode.value}'"
@@ -172,9 +173,9 @@ class App:
 
     def _is_function_compatible(self: "App", func: Callable) -> bool:
         if self.concurrency_mode == ConcurrencyMode.ASYNC:  # pragma: no cover
-            return asyncio.iscoroutinefunction(func)
+            return inspect.iscoroutinefunction(func)
 
-        return not asyncio.iscoroutinefunction(func)
+        return not inspect.iscoroutinefunction(func)
 
     @property
     def logger(self: "App") -> Logger:
@@ -270,6 +271,7 @@ class App:
         forward_to: Optional[Union[str, Queue, Exchange, Destination]] = None,
         persistent: bool = True,
         auto_delete: bool = False,
+        retry_strategy: Optional[RetryStrategy] = None,
     ) -> Callable[[Callable], QueueEndpoint]:
         """
         Decorator to register a function as a queue endpoint.
@@ -293,6 +295,11 @@ class App:
 
         codec = CodecType(codec) if codec is not None else self._codec_type
 
+        # if the user didn't provide an explicit retry strategy, use the default
+        # strategy that never performs retries
+        if retry_strategy is None:
+            retry_strategy = NoRetryStrategy()
+
         def _queue_decorator(func: Callable) -> QueueEndpoint:
             # check that the function is compatible with the selected concurrency mode
             self._assert_function_compatible(func)
@@ -308,6 +315,7 @@ class App:
                         target=func,
                         codec_type=codec,
                         forward_to=forward_to,
+                        retry_strategy=retry_strategy,
                     )
                 )
             )

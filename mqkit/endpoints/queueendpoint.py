@@ -11,6 +11,7 @@ from .config import QueueEndpointConfig
 from .endpoint import Endpoint
 from ..errors import NoForwardTargetError
 from ..messaging import Attributes, Destination, Forward, QueueMessage, Response
+from ..messaging.retry import RetryStrategy
 
 
 class QueueEndpoint(Endpoint):
@@ -122,3 +123,7 @@ class QueueEndpoint(Endpoint):
     @property
     def queue_name(self: "QueueEndpoint") -> str:
         return copy(self._config.queue.name)
+
+    @property
+    def retry_strategy(self: "QueueEndpoint") -> RetryStrategy:
+        return self._config.retry_strategy

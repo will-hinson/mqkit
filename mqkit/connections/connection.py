@@ -5,11 +5,11 @@ Defines the abstract base class Connection for message queue connections.
 """
 
 from abc import ABCMeta, abstractmethod
-from typing import Optional, List, Type
+from typing import TYPE_CHECKING, Optional, List, Type
 
-from mqkit.declarations import Declaration
-
-from ..messaging import Forward, QueueMessage
+if TYPE_CHECKING:
+    from ..declarations import Declaration
+    from ..messaging import Forward, QueueMessage
 
 
 class Connection(metaclass=ABCMeta):
