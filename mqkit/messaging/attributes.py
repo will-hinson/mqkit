@@ -22,3 +22,6 @@ class Attributes(BaseModel):
     forwarded: bool
     origin_queue: Optional[str] = None
     topic: Union[str, None]
+    retry_count: int = 0
+    previous_retry_count: int = 0
+    is_dead_letter: bool

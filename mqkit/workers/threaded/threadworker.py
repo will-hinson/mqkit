@@ -87,6 +87,7 @@ class ThreadWorker(Worker, Thread):
                     connection=self.connection,
                     message=message,
                     exception=exc,
+                    received_queue=self._endpoint.queue_name,
                 )
             )
 

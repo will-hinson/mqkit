@@ -9,11 +9,13 @@ behavior if a retry strategy is not specified for a message handler
 """
 
 __all__ = [
+    "ImmediateRetryStrategy",
     "NoRetryStrategy",
     "RetryContext",
     "RetryStrategy",
 ]
 
+from .immediateretrystrategy import ImmediateRetryStrategy
 from .noretrystrategy import NoRetryStrategy
 from .retrycontext import RetryContext
 from .retrystrategy import RetryStrategy

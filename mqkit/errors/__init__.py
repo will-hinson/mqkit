@@ -6,6 +6,8 @@ Defines various exception classes used in the MQKit library.
 
 __all__ = [
     "AppError",
+    "BadDestinationError",
+    "ConfigurationError",
     "DecodeError",
     "EncodeError",
     "EndpointError",
@@ -22,6 +24,8 @@ __all__ = [
 ]
 
 from .apperror import AppError
+from .baddestinationerror import BadDestinationError
+from .configurationerror import ConfigurationError
 from .decodeerror import DecodeError
 from .encodeerror import EncodeError
 from .endpointerror import EndpointError

@@ -9,7 +9,7 @@ the RabbitMqEngine class
 import functools
 from queue import Queue as ProcessQueue
 import threading
-from typing import ClassVar, List, Optional, Set
+from typing import ClassVar, Dict, List, Optional, Set
 
 from pika import BasicProperties, ConnectionParameters, PlainCredentials, SSLOptions
 from pika import BlockingConnection as PikaBlockingConnection
@@ -257,6 +257,19 @@ class AmqpConnection(Connection, BaseModel):
                 self._connection = None
                 self._channel = None
 
+    def _decode_retry_count(
+        self: "AmqpConnection",
+        properties: BasicProperties,
+        key: str = "x-mqkit-retry-count",
+    ) -> int:
+        if properties.headers and key in properties.headers:
+            try:
+                return int(properties.headers[key])
+            except (ValueError, TypeError):
+                pass
+
+        return 0
+
     def _enqueue_message(
         self: "AmqpConnection",
         channel: BlockingChannel,
@@ -324,7 +337,7 @@ class AmqpConnection(Connection, BaseModel):
                     routing_key=forward.message.attributes.topic or "",
                     body=forward.message.data,
                     properties=BasicProperties(
-                        headers=forward.message.attributes.headers,
+                        headers=self._get_forward_message_headers(forward),
                         delivery_mode=2,  # make message persistent
                     ),
                 )
@@ -371,11 +384,22 @@ class AmqpConnection(Connection, BaseModel):
                 routing_key=forward.forward_target.name,
                 body=forward.message.data,
                 properties=BasicProperties(
-                    headers=forward.message.attributes.headers,
+                    headers=self._get_forward_message_headers(forward),
                     delivery_mode=2,  # make message persistent
                 ),
             )
         )
+
+    def _get_forward_message_headers(
+        self: "AmqpConnection",
+        forward: Forward,
+    ) -> Dict[str, str]:
+        headers: Dict[str, str] = forward.message.attributes.headers.copy()
+
+        if forward.message.attributes.retry_count > 0:
+            headers["x-mqkit-retry-count"] = str(forward.message.attributes.retry_count)
+
+        return headers
 
     def get_message(self: "AmqpConnection") -> QueueMessage:
         message: AmqpMessage | AmqpSentinel = self._message_queue.get()
@@ -390,7 +414,7 @@ class AmqpConnection(Connection, BaseModel):
                 headers={
                     key: str(value)
                     for key, value in (message.properties.headers or {}).items()
-                    if not key.startswith("x-mqkit-")
+                    if key.startswith("x-mqkit-") and key != "x-mqkit-exception-history"
                 },
                 platform={
                     "channel": {
@@ -421,6 +445,23 @@ class AmqpConnection(Connection, BaseModel):
                     message.method.routing_key  # type: ignore
                     if message.method.exchange != ""  # type: ignore
                     else None
+                ),
+                retry_count=self._decode_retry_count(message.properties),
+                previous_retry_count=self._decode_retry_count(
+                    message.properties,
+                    key="x-mqkit-previous-retry-count",
+                ),
+                is_dead_letter=(
+                    (
+                        str(
+                            message.properties.headers.get(
+                                "x-mqkit-dead-letter", "false"
+                            )
+                        ).lower()
+                        == "true"
+                    )
+                    if message.properties.headers
+                    else False
                 ),
             ),
         )
@@ -473,6 +514,14 @@ class AmqpConnection(Connection, BaseModel):
             self._consume_thread.join()
 
             self._consume_thread = None
+
+    def submit_message(self: "AmqpConnection", message: "QueueMessage") -> None:
+        self.forward_message(
+            Forward(
+                forward_target=self.queue,
+                message=message,
+            )
+        )
 
     def unblock(self: "AmqpConnection", message: Optional[str] = None) -> None:
         if self._connection is None:

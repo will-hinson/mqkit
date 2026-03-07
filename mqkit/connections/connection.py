@@ -143,6 +143,23 @@ class Connection(metaclass=ABCMeta):
         raise NotImplementedError()
 
     @abstractmethod
+    def submit_message(self: "Connection", message: "QueueMessage") -> None:
+        """
+        Submit a message to the connected queue.
+
+        Args:
+            message (QueueMessage): The message to submit.
+
+        Returns:
+            None
+
+        Raises:
+            NotImplementedError: If the method is not implemented.
+        """
+
+        raise NotImplementedError()
+
+    @abstractmethod
     def unblock(self: "Connection", message: Optional[str] = None) -> None:
         """
         Unblock the connection if it is blocked waiting for a message by

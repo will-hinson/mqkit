@@ -24,6 +24,7 @@ class RetryContext(BaseModel):
     connection: Connection
     message: QueueMessage
     exception: Exception
+    received_queue: str
 
     model_config: ClassVar[ConfigDict] = ConfigDict(
         arbitrary_types_allowed=True,
