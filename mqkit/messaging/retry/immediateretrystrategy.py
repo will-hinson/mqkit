@@ -2,8 +2,11 @@ import json
 import traceback
 from typing import Any, Dict, List, Optional, override
 
+from pydantic import ValidationError
+
 from ..destination import Destination
 from ...errors import MarshalError
+from .exceptionhistoryentry import ExceptionHistoryEntry
 from ..forwardtarget import ForwardTarget
 from ...messaging import Forward
 from .retrycontext import RetryContext
@@ -34,11 +37,13 @@ class ImmediateRetryStrategy(RetryStrategy):
 
     @override
     def handle_failure(self: "ImmediateRetryStrategy", context: RetryContext) -> None:
+        # first, check if the failure was due to a marshalling error. if so, we assume
+        # the message was malformed and don't try to retry it
         if issubclass(type(context.exception), MarshalError):
             self._handle_failure_bad_message(context)
             return
 
-        # check if we have already exceeded the maximum number of retries. if so,
+        # then, check if we have already exceeded the maximum number of retries. if so,
         # acknowledge failure and do not retry
         if context.message.attributes.retry_count >= self._retries:
             self._handle_failure_retries_exceeded(context)
@@ -52,31 +57,38 @@ class ImmediateRetryStrategy(RetryStrategy):
     def _append_exception_to_history(
         self: "ImmediateRetryStrategy", context: RetryContext
     ) -> None:
-        # try decoding any existing exception history from the headers, and append the current exception to it
-        exception_history: List[Dict[str, Any]] = []
+        # try decoding any existing exception history from the headers
+        exception_history: List[ExceptionHistoryEntry] = []
         try:
-            exception_history = json.loads(
-                context.message.attributes.headers.get(
-                    "x-mqkit-exception-history", "[]"
+            exception_history = [
+                ExceptionHistoryEntry(**object)
+                for object in json.loads(
+                    context.message.attributes.headers.get(
+                        "x-mqkit-exception-history", "[]"
+                    )
                 )
-            )
-        except json.JSONDecodeError:
+            ]
+        except (json.JSONDecodeError, ValidationError) as e:
             self._logger.warning(
                 "Failed to decode exception history from message headers, "
-                "proceeding without it"
+                "proceeding without empty history (%s: %s)",
+                type(e),
+                e,
             )
 
+        # append an object representing the current exception to the history
         exception_history.append(
-            {
-                "exception_type": type(context.exception).__qualname__,
-                "exception_message": str(context.exception),
-                "traceback": traceback.format_exception(context.exception),
-                "retry_count": context.message.attributes.retry_count,
-            }
+            ExceptionHistoryEntry(
+                exception_type=type(context.exception).__qualname__,
+                exception_message=str(context.exception),
+                traceback=traceback.format_exception(context.exception),
+                retry_count=context.message.attributes.retry_count,
+            )
         )
 
+        # re-encode the updated exception history back into the headers
         context.message.attributes.headers["x-mqkit-exception-history"] = json.dumps(
-            exception_history
+            [entry.model_dump() for entry in exception_history]
         )
 
     def _forward_to_dlq(self: "ImmediateRetryStrategy", context: RetryContext) -> None:
@@ -141,6 +153,7 @@ class ImmediateRetryStrategy(RetryStrategy):
     ) -> None:
         # submit the message for retry by requeuing it with an incremented retry count in the headers
         context.message.attributes.retry_count += 1
+        self._append_exception_to_history(context)
         context.connection.submit_message(context.message)
         self._logger.info(
             "Requeued message for immediate retry (current retry count: "
