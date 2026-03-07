@@ -20,7 +20,7 @@ class Connection(metaclass=ABCMeta):
     """
 
     @abstractmethod
-    def acknowledge_failure(self: "Connection", message: QueueMessage) -> None:
+    def acknowledge_failure(self: "Connection", message: "QueueMessage") -> None:
         """
         Acknowledge the failure of processing a message.
 
@@ -54,7 +54,7 @@ class Connection(metaclass=ABCMeta):
         raise NotImplementedError()
 
     @abstractmethod
-    def declare_resources(self: "Connection", resources: List[Declaration]) -> None:
+    def declare_resources(self: "Connection", resources: List["Declaration"]) -> None:
         """
         Declare a messaging resource (e.g., queue, exchange).
 
@@ -109,7 +109,7 @@ class Connection(metaclass=ABCMeta):
         raise NotImplementedError()
 
     @abstractmethod
-    def forward_message(self: "Connection", forward: Forward) -> None:
+    def forward_message(self: "Connection", forward: "Forward") -> None:
         """
         Forward a message to another queue.
 
@@ -126,7 +126,7 @@ class Connection(metaclass=ABCMeta):
         raise NotImplementedError()
 
     @abstractmethod
-    def get_message(self: "Connection") -> QueueMessage:
+    def get_message(self: "Connection") -> "QueueMessage":
         """
         Block and wait for a message from the connected queue.
 
