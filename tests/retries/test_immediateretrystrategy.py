@@ -1,5 +1,4 @@
 from copy import deepcopy
-import queue
 from threading import Thread
 from typing import Dict, List, Optional
 
@@ -7,12 +6,13 @@ from mqkit import App, Exchange, Queue, create_engine, ImmediateRetryStrategy
 from mqkit.engines.rabbitmq import RabbitMqEngine
 from mqkit.errors import ConfigurationError
 from mqkit.messaging.attributes import Attributes
-import pytest
-
 from mqkit.messaging.destination import Destination
+import pytest
+import requests
 
 from ..common import (
     ASSERT_TIMEOUT,
+    build_management_url,
     TEST_HOST,
     TEST_PASSWORD,
     TEST_PORT,
@@ -30,22 +30,12 @@ def rabbitmq_engine() -> RabbitMqEngine:
     )  # type: ignore
 
 
-def stop_app_permissive(app: App) -> None:
-    """
-    Stop the app, but ignore any exceptions that occur during stopping to ensure that the app is stopped even if there are issues with stopping it
-    """
-    try:
-        app.stop()
-    except queue.ShutDown:
-        pass
-
-
 def test_immediateretrystrategy_basic(rabbitmq_engine: RabbitMqEngine) -> None:
     """Test immediate retry with no dead-letter destination"""
     target_retries: int = 3
 
     app: App = App()
-    with ManagedQueue("test_queue") as managed_queue:
+    with ManagedQueue("immediateretrystrategy_basic") as managed_queue:
         try_count: int = 0
         last_message: Dict
         last_attributes: Attributes
@@ -98,7 +88,7 @@ def test_immediateretrystrategy_basic(rabbitmq_engine: RabbitMqEngine) -> None:
                 "Exception history should contain an entry for each retry attempt"
             )
         finally:
-            stop_app_permissive(app)
+            app.stop()
             app_thread.join()
 
 
@@ -108,7 +98,7 @@ def test_immediateretrystrategy_marshal_error_no_retry(
     """Test that messages that fail due to a MarshalError do not get retried since they are likely malformed and will continue to fail on retry"""
 
     app: App = App()
-    with ManagedQueue("test_queue") as managed_queue:
+    with ManagedQueue("immediateretrystrategy_marshal_error_no_retry") as managed_queue:
         try_count: int = 0
 
         @app.queue(
@@ -131,7 +121,7 @@ def test_immediateretrystrategy_marshal_error_no_retry(
             wait_to_assert(lambda: managed_queue.size == 0, timeout=ASSERT_TIMEOUT)
             wait_to_assert(lambda: try_count == 0, timeout=ASSERT_TIMEOUT)
         finally:
-            stop_app_permissive(app)
+            app.stop()
             app_thread.join()
 
         wait_to_assert(lambda: managed_queue.size == 0, timeout=ASSERT_TIMEOUT)
@@ -148,7 +138,7 @@ def test_immediateretrystrategy_zero_retries(rabbitmq_engine: RabbitMqEngine) ->
     """Test that if the retry strategy is configured with 0 retries, the message does not get retried at all"""
 
     app: App = App()
-    with ManagedQueue("test_queue") as managed_queue:
+    with ManagedQueue("immediateretrystrategy_zero_retries") as managed_queue:
         try_count: int = 0
 
         @app.queue(
@@ -172,7 +162,7 @@ def test_immediateretrystrategy_zero_retries(rabbitmq_engine: RabbitMqEngine) ->
             wait_to_assert(lambda: managed_queue.size == 0, timeout=ASSERT_TIMEOUT)
             wait_to_assert(lambda: try_count == 1, timeout=ASSERT_TIMEOUT)
         finally:
-            stop_app_permissive(app)
+            app.stop()
             app_thread.join()
 
 
@@ -184,7 +174,7 @@ def test_immediateretrystrategy_invalid_retry_count(
     as having 0 retries so that it gets retried up to the max retries
     """
 
-    with ManagedQueue("test_queue") as managed_queue:
+    with ManagedQueue("immediateretrystrategy_invalid_retry_count") as managed_queue:
         app: App = App()
 
         last_attributes: Attributes
@@ -218,7 +208,7 @@ def test_immediateretrystrategy_invalid_retry_count(
                 "Retry count in attributes should be treated as 0 if it is invalid"
             )
         finally:
-            stop_app_permissive(app)
+            app.stop()
             app_thread.join()
 
 
@@ -231,7 +221,9 @@ def test_immediateretrystrategy_invalid_exception_history(
     and retry the message up to the max retries
     """
 
-    with ManagedQueue("test_queue") as managed_queue:
+    with ManagedQueue(
+        "immediateretrystrategy_invalid_exception_history"
+    ) as managed_queue:
         app: App = App()
 
         first_attributes: Attributes
@@ -271,7 +263,7 @@ def test_immediateretrystrategy_invalid_exception_history(
                 "Exception history should be treated as empty if it is invalid"
             )
         finally:
-            stop_app_permissive(app)
+            app.stop()
             app_thread.join()
 
 
@@ -281,7 +273,10 @@ def test_immediateretrystrategy_dlq(
     """Test that messages that exhaust their retries get forwarded to the dead-letter destination if configured"""
 
     app: App = App()
-    with ManagedQueue("test_queue") as managed_queue, ManagedQueue("dlq") as dlq:
+    with (
+        ManagedQueue("immediateretrystrategy_dlq") as managed_queue,
+        ManagedQueue("immediateretrystrategy_dlq_dest") as dlq,
+    ):
         managed_queue.define()
         dlq.define()
 
@@ -374,7 +369,7 @@ def test_immediateretrystrategy_dlq(
                     "raised in the handler"
                 )
         finally:
-            stop_app_permissive(app)
+            app.stop()
             app_thread.join()
 
 
@@ -386,7 +381,10 @@ def test_immediateretrystrategy_dl_exchange(rabbitmq_engine: RabbitMqEngine) -> 
 
     app: App = App()
 
-    with ManagedQueue("test_queue") as managed_queue, ManagedQueue("dlq") as dlq:
+    with (
+        ManagedQueue("immediateretrystrategy_dl_exchange") as managed_queue,
+        ManagedQueue("immediateretrystrategy_dl_exchange_dest") as dlq,
+    ):
         managed_queue.define()
         dlq.define()
 
@@ -459,5 +457,13 @@ def test_immediateretrystrategy_dl_exchange(rabbitmq_engine: RabbitMqEngine) -> 
                 "Message should be forwarded to the configured dl_exchange exchange"
             )
         finally:
-            stop_app_permissive(app)
+            app.stop()
             app_thread.join()
+
+            response = requests.delete(
+                build_management_url("/api/exchanges/%2F/dl_exchange"),
+                auth=(TEST_USERNAME, TEST_PASSWORD),
+            )
+            assert response.ok or response.status_code == 404, (
+                "Failed to delete dl_exchange exchange"
+            )
