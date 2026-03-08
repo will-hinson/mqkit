@@ -1,6 +1,5 @@
-from copy import copy
+from copy import deepcopy
 import queue
-import json
 from threading import Thread
 from typing import Dict, List, Optional
 
@@ -95,10 +94,9 @@ def test_immediateretrystrategy_basic(rabbitmq_engine: RabbitMqEngine) -> None:
             assert last_attributes.retry_count == target_retries, (
                 "Retry count in attributes should match the number of retries attempted"
             )
-            assert (
-                len(json.loads(last_attributes.headers["x-mqkit-exception-history"]))
-                == target_retries
-            ), "Exception history should contain an entry for each retry attempt"
+            assert len(last_attributes.exception_history) == target_retries, (
+                "Exception history should contain an entry for each retry attempt"
+            )
         finally:
             stop_app_permissive(app)
             app_thread.join()
@@ -236,7 +234,7 @@ def test_immediateretrystrategy_invalid_exception_history(
     with ManagedQueue("test_queue") as managed_queue:
         app: App = App()
 
-        first_attribute_headers: Dict[str, str]
+        first_attributes: Attributes
         attributes_list: List[Attributes] = []
 
         @app.queue(
@@ -246,11 +244,11 @@ def test_immediateretrystrategy_invalid_exception_history(
             ),
         )
         def test_queue(message, attributes):
-            nonlocal attributes_list, first_attribute_headers
+            nonlocal attributes_list, first_attributes
             attributes_list.append(attributes)
 
             if len(attributes_list) == 1:
-                first_attribute_headers = copy(attributes.headers)
+                first_attributes = deepcopy(attributes)
 
             raise Exception("Simulated processing failure")
 
@@ -269,11 +267,9 @@ def test_immediateretrystrategy_invalid_exception_history(
             wait_to_assert(lambda: managed_queue.size == 0, timeout=ASSERT_TIMEOUT)
             wait_to_assert(lambda: len(attributes_list) == 4, timeout=ASSERT_TIMEOUT)
 
-            # check that the message gets retried up to the max retries and then stops
-            assert (
-                first_attribute_headers["x-mqkit-exception-history"]
-                == "invalid_exception_history"
-            ), "Invalid exception history should be preserved in the attributes"
+            assert len(first_attributes.exception_history) == 0, (
+                "Exception history should be treated as empty if it is invalid"
+            )
         finally:
             stop_app_permissive(app)
             app_thread.join()
@@ -332,8 +328,8 @@ def test_immediateretrystrategy_dlq(
             # inspect the received message in the dlq
             assert dlq_attributes is not None
             assert dlq_message == {}
-            assert "x-mqkit-exception-history" in dlq_attributes.headers, (
-                "Exception history header should be present in the attributes of the message "
+            assert dlq_attributes.exception_history, (
+                "Exception history should be present in the attributes of the message "
                 "forwarded to the dlq"
             )
             assert dlq_attributes.forwarded, (
@@ -357,25 +353,23 @@ def test_immediateretrystrategy_dlq(
             # look at the exception history in the attributes and check that it contains an entry
             # for each retry attempt with the correct exception information
             for i in range(3):
-                exception_history_entry = json.loads(
-                    dlq_attributes.headers["x-mqkit-exception-history"]
-                )[i]
-                assert exception_history_entry["exception_type"] == "Exception", (
+                exception_history_entry = dlq_attributes.exception_history[i]
+                assert exception_history_entry.exception_type == "Exception", (
                     "Exception type in the history should match the type of exception raised "
                     "in the handler"
                 )
                 assert (
-                    exception_history_entry["exception_message"]
+                    exception_history_entry.exception_message
                     == "Simulated processing failure"
                 ), (
                     "Exception message in the history should match the message of the exception "
                     "raised in the handler"
                 )
-                assert exception_history_entry["retry_count"] == i, (
+                assert exception_history_entry.retry_count == i, (
                     "Retry count in each history entry should reflect the retry attempt number"
                 )
-                assert "traceback" in exception_history_entry
-                assert exception_history_entry["exception_module"] == "builtins", (
+                assert len(exception_history_entry.traceback) > 0
+                assert exception_history_entry.exception_module == "builtins", (
                     "Exception module in the history should match the module of the exception "
                     "raised in the handler"
                 )

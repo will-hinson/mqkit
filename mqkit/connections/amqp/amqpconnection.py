@@ -7,15 +7,18 @@ the RabbitMqEngine class
 """
 
 import functools
+import json
+from logging import Logger
+import logging
 from queue import Queue as ProcessQueue
 import threading
-from typing import ClassVar, Dict, List, Optional, Set
+from typing import Any, ClassVar, Dict, List, Optional, Set
 
 from pika import BasicProperties, ConnectionParameters, PlainCredentials, SSLOptions
 from pika import BlockingConnection as PikaBlockingConnection
 from pika.adapters.blocking_connection import BlockingChannel
 from pika.amqp_object import Method
-from pydantic import BaseModel, ConfigDict, PrivateAttr
+from pydantic import BaseModel, ConfigDict, PrivateAttr, ValidationError
 from slugify import slugify
 
 from .amqpconsumethread import AmqpConsumeThread
@@ -24,6 +27,7 @@ from .amqpsentinel import AmqpSentinel
 from ..connection import Connection
 from ...declarations import Declaration, ExchangeDeclaration, QueueDeclaration
 from ...errors import ShutdownRequested
+from ...logging import root_logger_name
 from ...messaging import (
     Attributes,
     Exchange,
@@ -32,6 +36,7 @@ from ...messaging import (
     Queue,
     QueueMessage,
 )
+from ...messaging.exceptionhistoryentry import ExceptionHistoryEntry
 
 
 class AmqpConnection(Connection, BaseModel):
@@ -55,9 +60,16 @@ class AmqpConnection(Connection, BaseModel):
     _consume_thread: Optional[AmqpConsumeThread] = PrivateAttr(default=None)
     _declared_exchanges: Set[str] = PrivateAttr(default_factory=set)
     _declared_queues: Set[str] = PrivateAttr(default_factory=set)
+    _logger: Logger = PrivateAttr()
     _message_queue: ProcessQueue = PrivateAttr(default_factory=ProcessQueue)
 
     model_config: ClassVar[ConfigDict] = ConfigDict(arbitrary_types_allowed=True)
+
+    def model_post_init(self: "AmqpConnection", context: Any) -> None:
+        self._logger = logging.getLogger(
+            f"{root_logger_name}.{'.'.join(self.__class__.__module__.split('.')[1:-1])}."
+            f"{self.__class__.__name__}.{self.queue}"
+        )
 
     def acknowledge_failure(
         self: "AmqpConnection",
@@ -257,6 +269,29 @@ class AmqpConnection(Connection, BaseModel):
                 self._connection = None
                 self._channel = None
 
+    def _decode_exception_history(
+        self: "AmqpConnection",
+        properties: BasicProperties,
+        key: str = "x-mqkit-exception-history",
+    ) -> List[ExceptionHistoryEntry]:
+        if properties.headers is not None:
+            try:
+                return [
+                    ExceptionHistoryEntry(**object)
+                    for object in json.loads(
+                        properties.headers.get(key, "[]"),
+                    )
+                ]
+            except (json.JSONDecodeError, ValidationError) as e:
+                self._logger.warning(
+                    "Failed to decode exception history from message headers, "
+                    "proceeding without empty history (%s: %s)",
+                    type(e),
+                    e,
+                )
+
+        return []
+
     def _decode_retry_count(
         self: "AmqpConnection",
         properties: BasicProperties,
@@ -398,6 +433,13 @@ class AmqpConnection(Connection, BaseModel):
 
         if forward.message.attributes.retry_count > 0:
             headers["x-mqkit-retry-count"] = str(forward.message.attributes.retry_count)
+        if len(forward.message.attributes.exception_history) > 0:
+            headers["x-mqkit-exception-history"] = json.dumps(
+                [
+                    entry.model_dump()
+                    for entry in forward.message.attributes.exception_history
+                ]
+            )
 
         return headers
 
@@ -415,7 +457,6 @@ class AmqpConnection(Connection, BaseModel):
                     key: str(value)
                     for key, value in (message.properties.headers or {}).items()
                     if not key.startswith("x-mqkit-")
-                    or key == "x-mqkit-exception-history"
                 },
                 platform={
                     "channel": {
@@ -464,6 +505,7 @@ class AmqpConnection(Connection, BaseModel):
                     if message.properties.headers
                     else False
                 ),
+                exception_history=self._decode_exception_history(message.properties),
             ),
         )
 

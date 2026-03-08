@@ -1,5 +1,5 @@
 """
-module mqkit.messaging.retry.exceptionhistoryentry
+module mqkit.messaging.exceptionhistoryentry
 
 This module defines the ExceptionHistoryEntry class, which is used to represent an entry in the
 exception history of a failed message. The ExceptionHistoryEntry includes the type, module,

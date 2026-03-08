@@ -7,17 +7,14 @@ to fail after exceeding the maximum retries, it can be forwarded to an optional 
 destination for further analysis or handling.
 """
 
-import json
 import traceback
-from typing import List, Optional, override
-
-from pydantic import ValidationError
+from typing import Optional, override
 
 from ..destination import Destination
 from ...errors import ConfigurationError, MarshalError
-from .exceptionhistoryentry import ExceptionHistoryEntry
+from ..exceptionhistoryentry import ExceptionHistoryEntry
 from ..forwardtarget import ForwardTarget
-from ...messaging import Forward
+from ..forward import Forward
 from .retrycontext import RetryContext
 from .retrystrategy import RetryStrategy
 
@@ -75,27 +72,8 @@ class ImmediateRetryStrategy(RetryStrategy):
     def _append_exception_to_history(
         self: "ImmediateRetryStrategy", context: RetryContext
     ) -> None:
-        # try decoding any existing exception history from the headers
-        exception_history: List[ExceptionHistoryEntry] = []
-        try:
-            exception_history = [
-                ExceptionHistoryEntry(**object)
-                for object in json.loads(
-                    context.message.attributes.headers.get(
-                        "x-mqkit-exception-history", "[]"
-                    )
-                )
-            ]
-        except (json.JSONDecodeError, ValidationError) as e:
-            self._logger.warning(
-                "Failed to decode exception history from message headers, "
-                "proceeding without empty history (%s: %s)",
-                type(e),
-                e,
-            )
-
         # append an object representing the current exception to the history
-        exception_history.append(
+        context.message.attributes.exception_history.append(
             ExceptionHistoryEntry(
                 exception_type=type(context.exception).__qualname__,
                 exception_module=type(context.exception).__module__,
@@ -103,11 +81,6 @@ class ImmediateRetryStrategy(RetryStrategy):
                 traceback=traceback.format_exception(context.exception),
                 retry_count=context.message.attributes.retry_count,
             )
-        )
-
-        # re-encode the updated exception history back into the headers
-        context.message.attributes.headers["x-mqkit-exception-history"] = json.dumps(
-            [entry.model_dump() for entry in exception_history]
         )
 
     def _forward_to_dlq(self: "ImmediateRetryStrategy", context: RetryContext) -> None:

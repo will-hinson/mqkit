@@ -78,7 +78,9 @@ class ManagedQueue:
         assert response.ok or response.status_code == 404
         return "messages" in response.json()
 
-    def publish(self: "ManagedQueue", message: str, headers: dict | None = None) -> None:
+    def publish(
+        self: "ManagedQueue", message: str, headers: dict | None = None
+    ) -> None:
         response: Response = requests.post(
             build_management_url("/api/exchanges/%2F/amq.default/publish"),
             auth=(TEST_USERNAME, TEST_PASSWORD),

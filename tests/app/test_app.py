@@ -185,10 +185,12 @@ def test_app_declare_exchange(rabbitmq_engine: RabbitMqEngine) -> None:
 
         for exchange_name in ["test_exchange", "another_test_exchange"]:
             wait_to_assert(
-                lambda: requests.get(
-                    build_management_url(f"/api/exchanges/%2F/{exchange_name}"),
-                    auth=(TEST_USERNAME, TEST_PASSWORD),
-                ).ok,
+                lambda: (
+                    requests.get(
+                        build_management_url(f"/api/exchanges/%2F/{exchange_name}"),
+                        auth=(TEST_USERNAME, TEST_PASSWORD),
+                    ).ok
+                ),
                 timeout=ASSERT_TIMEOUT,
             )
 
@@ -275,18 +277,22 @@ def test_app_declare_queue(rabbitmq_engine: RabbitMqEngine) -> None:
         exchange_declaration_2.exchange.name,
     ]:
         wait_to_assert(
-            lambda: requests.get(
-                build_management_url(f"/api/exchanges/%2F/{resource_name}"),
-                auth=(TEST_USERNAME, TEST_PASSWORD),
-            ).ok,
+            lambda: (
+                requests.get(
+                    build_management_url(f"/api/exchanges/%2F/{resource_name}"),
+                    auth=(TEST_USERNAME, TEST_PASSWORD),
+                ).ok
+            ),
             timeout=ASSERT_TIMEOUT,
         )
     for resource_name in [queue_id, queue_id + "_2"]:
         wait_to_assert(
-            lambda: requests.get(
-                build_management_url(f"/api/queues/%2F/{resource_name}"),
-                auth=(TEST_USERNAME, TEST_PASSWORD),
-            ).ok,
+            lambda: (
+                requests.get(
+                    build_management_url(f"/api/queues/%2F/{resource_name}"),
+                    auth=(TEST_USERNAME, TEST_PASSWORD),
+                ).ok
+            ),
             timeout=ASSERT_TIMEOUT,
         )
 
