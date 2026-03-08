@@ -31,7 +31,7 @@ def rabbitmq_engine() -> RabbitMqEngine:
 
 
 def test_threadworker_no_forwarding(rabbitmq_engine: RabbitMqEngine) -> None:
-    with ManagedQueue("test_queue") as managed_queue:
+    with ManagedQueue("threadworker_no_forwarding") as managed_queue:
         # define a simple target function that counts messages
         counter: int = 0
 
@@ -77,7 +77,7 @@ def test_threadworker_no_forwarding(rabbitmq_engine: RabbitMqEngine) -> None:
 
 
 def test_threadworker_no_retry(rabbitmq_engine: RabbitMqEngine) -> None:
-    with ManagedQueue("test_queue_no_retry") as managed_queue:
+    with ManagedQueue("threadworker_no_retry") as managed_queue:
         # define a simple target function that always raises NoRetry
         counter: int = 0
 

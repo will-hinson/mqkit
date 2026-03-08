@@ -26,7 +26,7 @@ def rabbitmq_engine() -> RabbitMqEngine:
 
 def test_noretry(rabbitmq_engine: RabbitMqEngine, mocker) -> None:
     app: App = App()
-    with ManagedQueue("test_queue") as managed_queue:
+    with ManagedQueue("noretry") as managed_queue:
         retry_count: int = 0
 
         @app.queue(managed_queue.name)
