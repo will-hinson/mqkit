@@ -27,4 +27,4 @@ class Attributes(BaseModel):
     retry_count: int = 0
     previous_retry_count: int = 0
     is_dead_letter: bool
-    exception_history: List[ExceptionHistoryEntry] = Field(..., default_factory=list)
+    exception_history: List[ExceptionHistoryEntry] = Field(default_factory=list)
