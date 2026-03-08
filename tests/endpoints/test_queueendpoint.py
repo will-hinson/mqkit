@@ -37,6 +37,7 @@ def test_queue_endpoint_no_forward_no_result() -> None:
                 headers={},
                 forwarded=False,
                 topic=None,
+                is_dead_letter=False,
             ),
         )
     )
@@ -69,6 +70,7 @@ def test_queue_endpoint_no_forward_with_result() -> None:
                     headers={},
                     forwarded=False,
                     topic=None,
+                    is_dead_letter=False,
                 ),
             )
         )
@@ -102,6 +104,7 @@ def test_queue_endpoint_with_forward_queue() -> None:
                 headers={},
                 forwarded=False,
                 topic=None,
+                is_dead_letter=False,
             ),
         )
     )
@@ -137,6 +140,7 @@ def test_queue_endpoint_with_forward_topic() -> None:
                 headers={},
                 forwarded=False,
                 topic=None,
+                is_dead_letter=False,
             ),
         )
     )
@@ -180,6 +184,7 @@ def test_queue_endpoint_with_forward_and_response_topic_error() -> None:
                     headers={},
                     forwarded=False,
                     topic=None,
+                    is_dead_letter=False,
                 ),
             )
         )

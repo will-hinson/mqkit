@@ -13,7 +13,7 @@ from typing import List, Optional, override
 
 from pydantic import ValidationError
 
-from ..destination import convert_forward_target_to_destination, Destination
+from ..destination import Destination
 from ...errors import MarshalError
 from .exceptionhistoryentry import ExceptionHistoryEntry
 from ..forwardtarget import ForwardTarget
@@ -44,7 +44,7 @@ class ImmediateRetryStrategy(RetryStrategy):
         super().__init__()
 
         self._retries = retries
-        self._dead_letter_destination = convert_forward_target_to_destination(
+        self._dead_letter_destination = Destination.from_forward_target(
             dead_letter_destination
         )
 

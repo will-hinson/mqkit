@@ -7,7 +7,6 @@ Defines the EndpointFactory class for creating endpoint instances.
 from typing import TYPE_CHECKING, Optional, Union
 
 from ..messaging import Destination, Exchange, Queue
-from ..messaging.destination import convert_forward_target_to_destination
 from .queueendpoint import QueueEndpoint
 
 if TYPE_CHECKING:
@@ -52,4 +51,4 @@ class EndpointFactory:
             Optional[Destination]: The converted Destination object, or None if the input is None.
         """
 
-        return convert_forward_target_to_destination(forward_to)
+        return Destination.from_forward_target(forward_to)

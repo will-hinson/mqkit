@@ -60,6 +60,7 @@ class QueueEndpoint(Endpoint):
                         forwarded=True,
                         origin_queue=self._config.queue.name,
                         topic=response.topic or self._config.forward_to.topic,
+                        is_dead_letter=False,
                     ),
                 ),
             )

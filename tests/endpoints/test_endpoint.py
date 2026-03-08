@@ -8,7 +8,7 @@ from mqkit.errors import FunctionSignatureError
 from mqkit.marshal import ReturnTypeSerializer, TypelessSerializer
 from mqkit.marshal.codecs import CodecType
 from mqkit.messaging import Queue
-from mqkit.messaging.retry import NoRetryStrategy, RetryStrategy
+from mqkit.messaging.retry import NoRetryStrategy
 
 import pytest
 
