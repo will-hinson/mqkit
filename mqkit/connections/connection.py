@@ -157,7 +157,7 @@ class Connection(metaclass=ABCMeta):
             NotImplementedError: If the method is not implemented.
         """
 
-        raise NotImplementedError()
+        raise NotImplementedError()  # pragma: no cover
 
     @abstractmethod
     def unblock(self: "Connection", message: Optional[str] = None) -> None:
