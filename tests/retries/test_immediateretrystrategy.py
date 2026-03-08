@@ -54,34 +54,38 @@ def test_immediateretrystrategy_basic(rabbitmq_engine: RabbitMqEngine) -> None:
 
         app_thread: Thread = Thread(target=app.run, args=(rabbitmq_engine,))
         app_thread.start()
-        wait_to_assert(lambda: managed_queue.exists, timeout=ASSERT_TIMEOUT)
-        managed_queue.publish("{}")
+        try:
+            wait_to_assert(lambda: managed_queue.exists, timeout=ASSERT_TIMEOUT)
+            managed_queue.publish("{}")
 
-        # check that the message actually gets retried the expected number of times
-        wait_to_assert(lambda: try_count == target_retries + 1, timeout=ASSERT_TIMEOUT)
+            # check that the message actually gets retried the expected number of times
+            wait_to_assert(lambda: try_count == target_retries + 1, timeout=ASSERT_TIMEOUT)
 
-        # stop the app and check that no more retries happen after the app is stopped
-        app.stop()
-        with pytest.raises(AssertionError):
-            wait_to_assert(
-                lambda: try_count > target_retries + 1,
-                timeout=max(
-                    {
-                        5,
-                        ASSERT_TIMEOUT / 4,
-                    }
-                ),
+            # stop the app and check that no more retries happen after the app is stopped
+            app.stop()
+            with pytest.raises(AssertionError):
+                wait_to_assert(
+                    lambda: try_count > target_retries + 1,
+                    timeout=max(
+                        {
+                            5,
+                            ASSERT_TIMEOUT / 4,
+                        }
+                    ),
+                )
+
+            # check that the queue is also empty after the retries are exhausted
+            wait_to_assert(lambda: managed_queue.size == 0, timeout=ASSERT_TIMEOUT)
+            assert last_attributes.retry_count == target_retries, (
+                "Retry count in attributes should match the number of retries attempted"
             )
-
-        # check that the queue is also empty after the retries are exhausted
-        wait_to_assert(lambda: managed_queue.size == 0, timeout=ASSERT_TIMEOUT)
-        assert last_attributes.retry_count == target_retries, (
-            "Retry count in attributes should match the number of retries attempted"
-        )
-        assert (
-            len(json.loads(last_attributes.headers["x-mqkit-exception-history"]))
-            == target_retries
-        ), "Exception history should contain an entry for each retry attempt"
+            assert (
+                len(json.loads(last_attributes.headers["x-mqkit-exception-history"]))
+                == target_retries
+            ), "Exception history should contain an entry for each retry attempt"
+        finally:
+            app.stop()
+            app_thread.join()
 
 
 def test_immediateretrystrategy_invalid_retry_count(
@@ -109,18 +113,22 @@ def test_immediateretrystrategy_invalid_retry_count(
 
         app_thread: Thread = Thread(target=app.run, args=(rabbitmq_engine,))
         app_thread.start()
-        wait_to_assert(lambda: managed_queue.exists, timeout=ASSERT_TIMEOUT)
+        try:
+            wait_to_assert(lambda: managed_queue.exists, timeout=ASSERT_TIMEOUT)
 
-        # publish a message with an invalid retry count in the attributes
-        managed_queue.publish(
-            "{}",
-            headers={
-                "x-mqkit-retry-count": "invalid_retry_count",
-            },
-        )
+            # publish a message with an invalid retry count in the attributes
+            managed_queue.publish(
+                "{}",
+                headers={
+                    "x-mqkit-retry-count": "invalid_retry_count",
+                },
+            )
 
-        # check that the message gets retried up to the max retries and then stops
-        wait_to_assert(lambda: managed_queue.size == 0, timeout=ASSERT_TIMEOUT)
-        assert last_attributes.retry_count == 0, (
-            "Retry count in attributes should be treated as 0 if it is invalid"
-        )
+            # check that the message gets retried up to the max retries and then stops
+            wait_to_assert(lambda: managed_queue.size == 0, timeout=ASSERT_TIMEOUT)
+            assert last_attributes.retry_count == 0, (
+                "Retry count in attributes should be treated as 0 if it is invalid"
+            )
+        finally:
+            app.stop()
+            app_thread.join()
