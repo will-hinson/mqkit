@@ -261,9 +261,7 @@ def test_threadcoordinator_worker_crash_with_recovery(
         except Exception as e:
             coordinator_exception = e
 
-    queue_name: str
     with ManagedQueue("threadcoordinator_worker_crash_with_recovery") as managed_queue:
-        queue_name = managed_queue.name
         counter: int = 0
 
         def sync_function(message, attributes):
@@ -299,3 +297,8 @@ def test_threadcoordinator_worker_crash_with_recovery(
             lambda: thread_start_counter >= 2,
             timeout=ASSERT_TIMEOUT,
         )
+        coordinator.stop()
+
+        crashing_run_stopped = True
+        coordinator_thread.join(timeout=ASSERT_TIMEOUT)
+        assert not coordinator_thread.is_alive()
