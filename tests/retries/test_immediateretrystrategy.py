@@ -1,3 +1,4 @@
+import queue
 import json
 from threading import Thread
 from typing import Dict
@@ -25,6 +26,16 @@ def rabbitmq_engine() -> RabbitMqEngine:
     return create_engine(
         f"amqp://{TEST_USERNAME}:{TEST_PASSWORD}@{TEST_HOST}:{TEST_PORT}{TEST_VHOST}"
     )  # type: ignore
+
+
+def stop_app_permissive(app: App) -> None:
+    """
+    Stop the app, but ignore any exceptions that occur during stopping to ensure that the app is stopped even if there are issues with stopping it
+    """
+    try:
+        app.stop()
+    except queue.ShutDown:
+        pass
 
 
 def test_immediateretrystrategy_basic(rabbitmq_engine: RabbitMqEngine) -> None:
@@ -59,7 +70,9 @@ def test_immediateretrystrategy_basic(rabbitmq_engine: RabbitMqEngine) -> None:
             managed_queue.publish("{}")
 
             # check that the message actually gets retried the expected number of times
-            wait_to_assert(lambda: try_count == target_retries + 1, timeout=ASSERT_TIMEOUT)
+            wait_to_assert(
+                lambda: try_count == target_retries + 1, timeout=ASSERT_TIMEOUT
+            )
 
             # stop the app and check that no more retries happen after the app is stopped
             app.stop()
@@ -84,7 +97,7 @@ def test_immediateretrystrategy_basic(rabbitmq_engine: RabbitMqEngine) -> None:
                 == target_retries
             ), "Exception history should contain an entry for each retry attempt"
         finally:
-            app.stop()
+            stop_app_permissive(app)
             app_thread.join()
 
 
@@ -130,5 +143,5 @@ def test_immediateretrystrategy_invalid_retry_count(
                 "Retry count in attributes should be treated as 0 if it is invalid"
             )
         finally:
-            app.stop()
+            stop_app_permissive(app)
             app_thread.join()
