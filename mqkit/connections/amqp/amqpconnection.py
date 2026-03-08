@@ -7,15 +7,18 @@ the RabbitMqEngine class
 """
 
 import functools
+import json
+from logging import Logger
+import logging
 from queue import Queue as ProcessQueue
 import threading
-from typing import ClassVar, List, Optional, Set
+from typing import Any, ClassVar, Dict, List, Optional, Set
 
 from pika import BasicProperties, ConnectionParameters, PlainCredentials, SSLOptions
 from pika import BlockingConnection as PikaBlockingConnection
 from pika.adapters.blocking_connection import BlockingChannel
 from pika.amqp_object import Method
-from pydantic import BaseModel, ConfigDict, PrivateAttr
+from pydantic import BaseModel, ConfigDict, PrivateAttr, ValidationError
 from slugify import slugify
 
 from .amqpconsumethread import AmqpConsumeThread
@@ -24,6 +27,7 @@ from .amqpsentinel import AmqpSentinel
 from ..connection import Connection
 from ...declarations import Declaration, ExchangeDeclaration, QueueDeclaration
 from ...errors import ShutdownRequested
+from ...logging import root_logger_name
 from ...messaging import (
     Attributes,
     Exchange,
@@ -32,6 +36,7 @@ from ...messaging import (
     Queue,
     QueueMessage,
 )
+from ...messaging.exceptionhistoryentry import ExceptionHistoryEntry
 
 
 class AmqpConnection(Connection, BaseModel):
@@ -55,9 +60,16 @@ class AmqpConnection(Connection, BaseModel):
     _consume_thread: Optional[AmqpConsumeThread] = PrivateAttr(default=None)
     _declared_exchanges: Set[str] = PrivateAttr(default_factory=set)
     _declared_queues: Set[str] = PrivateAttr(default_factory=set)
+    _logger: Logger = PrivateAttr()
     _message_queue: ProcessQueue = PrivateAttr(default_factory=ProcessQueue)
 
     model_config: ClassVar[ConfigDict] = ConfigDict(arbitrary_types_allowed=True)
+
+    def model_post_init(self: "AmqpConnection", context: Any) -> None:  # pylint: disable=arguments-differ
+        self._logger = logging.getLogger(
+            f"{root_logger_name}.{'.'.join(self.__class__.__module__.split('.')[1:-1])}."
+            f"{self.__class__.__name__}.{self.queue}"
+        )
 
     def acknowledge_failure(
         self: "AmqpConnection",
@@ -257,6 +269,42 @@ class AmqpConnection(Connection, BaseModel):
                 self._connection = None
                 self._channel = None
 
+    def _decode_exception_history(
+        self: "AmqpConnection",
+        properties: BasicProperties,
+        key: str = "x-mqkit-exception-history",
+    ) -> List[ExceptionHistoryEntry]:
+        if properties.headers is not None:
+            try:
+                return [
+                    ExceptionHistoryEntry(**object)
+                    for object in json.loads(
+                        properties.headers.get(key, "[]"),
+                    )
+                ]
+            except (json.JSONDecodeError, ValidationError) as e:
+                self._logger.warning(
+                    "Failed to decode exception history from message headers, "
+                    "proceeding without empty history (%s: %s)",
+                    type(e),
+                    e,
+                )
+
+        return []
+
+    def _decode_retry_count(
+        self: "AmqpConnection",
+        properties: BasicProperties,
+        key: str = "x-mqkit-retry-count",
+    ) -> int:
+        if properties.headers and key in properties.headers:
+            try:
+                return int(properties.headers[key])
+            except (ValueError, TypeError):
+                pass
+
+        return 0
+
     def _enqueue_message(
         self: "AmqpConnection",
         channel: BlockingChannel,
@@ -324,7 +372,7 @@ class AmqpConnection(Connection, BaseModel):
                     routing_key=forward.message.attributes.topic or "",
                     body=forward.message.data,
                     properties=BasicProperties(
-                        headers=forward.message.attributes.headers,
+                        headers=self._get_forward_message_headers(forward),
                         delivery_mode=2,  # make message persistent
                     ),
                 )
@@ -371,11 +419,29 @@ class AmqpConnection(Connection, BaseModel):
                 routing_key=forward.forward_target.name,
                 body=forward.message.data,
                 properties=BasicProperties(
-                    headers=forward.message.attributes.headers,
+                    headers=self._get_forward_message_headers(forward),
                     delivery_mode=2,  # make message persistent
                 ),
             )
         )
+
+    def _get_forward_message_headers(
+        self: "AmqpConnection",
+        forward: Forward,
+    ) -> Dict[str, str]:
+        headers: Dict[str, str] = forward.message.attributes.headers.copy()
+
+        if forward.message.attributes.retry_count > 0:
+            headers["x-mqkit-retry-count"] = str(forward.message.attributes.retry_count)
+        if len(forward.message.attributes.exception_history) > 0:
+            headers["x-mqkit-exception-history"] = json.dumps(
+                [
+                    entry.model_dump()
+                    for entry in forward.message.attributes.exception_history
+                ]
+            )
+
+        return headers
 
     def get_message(self: "AmqpConnection") -> QueueMessage:
         message: AmqpMessage | AmqpSentinel = self._message_queue.get()
@@ -422,6 +488,24 @@ class AmqpConnection(Connection, BaseModel):
                     if message.method.exchange != ""  # type: ignore
                     else None
                 ),
+                retry_count=self._decode_retry_count(message.properties),
+                previous_retry_count=self._decode_retry_count(
+                    message.properties,
+                    key="x-mqkit-previous-retry-count",
+                ),
+                is_dead_letter=(
+                    (
+                        str(
+                            message.properties.headers.get(
+                                "x-mqkit-dead-letter", "false"
+                            )
+                        ).lower()
+                        == "true"
+                    )
+                    if message.properties.headers
+                    else False
+                ),
+                exception_history=self._decode_exception_history(message.properties),
             ),
         )
 
@@ -473,6 +557,14 @@ class AmqpConnection(Connection, BaseModel):
             self._consume_thread.join()
 
             self._consume_thread = None
+
+    def submit_message(self: "AmqpConnection", message: "QueueMessage") -> None:
+        self.forward_message(
+            Forward(
+                forward_target=self.queue,
+                message=message,
+            )
+        )
 
     def unblock(self: "AmqpConnection", message: Optional[str] = None) -> None:
         if self._connection is None:

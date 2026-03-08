@@ -5,7 +5,7 @@ Defines the consume decorator for designating functions as message queue consume
 This is a single-consumer alternative to the mqkit.apps.App class.
 """
 
-import asyncio
+import inspect
 from logging import Logger
 import logging
 import os
@@ -17,6 +17,7 @@ from ..endpoints import EndpointFactory
 from ..endpoints.config import QueueEndpointConfig
 from ..marshal.codecs import CodecType
 from ..messaging import Destination, Exchange, Queue
+from ..messaging.retry import NoRetryStrategy, RetryStrategy
 from ..workers.threaded import ThreadWorker
 
 
@@ -79,6 +80,7 @@ def consume(
     forward_to: Optional[Union[str, Queue, Exchange, Destination]] = None,
     persistent: bool = True,
     auto_delete: bool = False,
+    retry_strategy: Optional[RetryStrategy] = None,
 ) -> Callable[[Callable], NoReturn]:
     """
     Blocking decorator to designate a callback function as a consumer for a single message queue.
@@ -106,6 +108,11 @@ def consume(
 
     codec = CodecType(codec) if codec is not None else CodecType.JSON
 
+    # if the user didn't provide an explicit retry strategy, use the default
+    # strategy that never performs retries
+    if retry_strategy is None:
+        retry_strategy = NoRetryStrategy()
+
     def _consume_decorator(func: Callable) -> NoReturn:
         # if a logger was not provided, infer one from the environment
         nonlocal logger
@@ -113,7 +120,7 @@ def consume(
             logger = _infer_logger(func)
 
         # NOTE: eventually add async functionality here
-        if asyncio.iscoroutinefunction(func):
+        if inspect.iscoroutinefunction(func):
             raise NotImplementedError(
                 "Async functions are not supported by the @consume decorator"
             )
@@ -130,6 +137,7 @@ def consume(
                 target=func,
                 codec_type=codec,
                 forward_to=forward_to,
+                retry_strategy=retry_strategy,
             ),
             engine=engine,
             logger=logger,

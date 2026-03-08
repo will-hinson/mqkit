@@ -16,6 +16,7 @@ from ...engines import Engine
 from ...errors import NoRetry, ShutdownRequested
 from ...logging import root_logger_name
 from ...messaging import Forward, QueueMessage
+from ...messaging.retry import RetryContext
 from .monotoniccounter import MonotonicCounter
 from ..worker import Worker
 
@@ -77,11 +78,18 @@ class ThreadWorker(Worker, Thread):
                 "" if len(nr.args) == 0 else f": {nr.args[0]}",
             )
             self.connection.acknowledge_failure(message)
-        except Exception as exc:  # pragma: no cover
-            # NOTE: we will want to add coverage here in the future once we have
-            # retry logic implemented
+        except Exception as exc:
+            # log the exception, then allow the retry strategy to determine what action
+            # should be taken (e.g. retry, dead-letter, etc.)
             self._logger.exception("Error while processing message: %s", exc)
-            self.connection.acknowledge_failure(message)
+            self._endpoint.retry_strategy.handle_failure(
+                context=RetryContext(
+                    connection=self.connection,
+                    message=message,
+                    exception=exc,
+                    received_queue=self._endpoint.queue_name,
+                )
+            )
 
     def _init_logger(self: "ThreadWorker") -> None:
         self._logger = logging.getLogger(

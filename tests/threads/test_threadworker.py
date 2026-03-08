@@ -6,6 +6,7 @@ from mqkit.endpoints import QueueEndpoint
 from mqkit.endpoints.config import QueueEndpointConfig
 from mqkit.engines.rabbitmq import RabbitMqEngine
 from mqkit.messaging import Queue
+from mqkit.messaging.retry.noretrystrategy import NoRetryStrategy
 from mqkit.workers.threaded import ThreadWorker
 
 import pytest
@@ -47,6 +48,7 @@ def test_threadworker_no_forwarding(rabbitmq_engine: RabbitMqEngine) -> None:
                     ),
                     target=target,
                     codec_type="json",
+                    retry_strategy=NoRetryStrategy(),
                 )
             ),
             engine=rabbitmq_engine,
@@ -93,6 +95,7 @@ def test_threadworker_no_retry(rabbitmq_engine: RabbitMqEngine) -> None:
                     ),
                     target=target,
                     codec_type="json",
+                    retry_strategy=NoRetryStrategy(),
                 )
             ),
             engine=rabbitmq_engine,
@@ -142,6 +145,7 @@ def test_threadworker_with_queue_forwarding(rabbitmq_engine: RabbitMqEngine) -> 
                     target=target,
                     codec_type="json",
                     forward_to=forwarded_queue.name,
+                    retry_strategy=NoRetryStrategy(),
                 )
             ),
             engine=rabbitmq_engine,

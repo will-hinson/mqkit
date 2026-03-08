@@ -9,6 +9,7 @@ from mqkit.messaging import Attributes, Forward, Queue, QueueMessage
 import pytest
 
 from mqkit.messaging.destination import Destination
+from mqkit.messaging.retry.noretrystrategy import NoRetryStrategy
 
 
 def test_queue_endpoint_no_forward_no_result() -> None:
@@ -22,6 +23,7 @@ def test_queue_endpoint_no_forward_no_result() -> None:
             ),
             target=target,
             codec_type="json",
+            retry_strategy=NoRetryStrategy(),
         )
     )
 
@@ -35,6 +37,7 @@ def test_queue_endpoint_no_forward_no_result() -> None:
                 headers={},
                 forwarded=False,
                 topic=None,
+                is_dead_letter=False,
             ),
         )
     )
@@ -52,6 +55,7 @@ def test_queue_endpoint_no_forward_with_result() -> None:
             ),
             target=target,
             codec_type="json",
+            retry_strategy=NoRetryStrategy(),
         )
     )
 
@@ -66,6 +70,7 @@ def test_queue_endpoint_no_forward_with_result() -> None:
                     headers={},
                     forwarded=False,
                     topic=None,
+                    is_dead_letter=False,
                 ),
             )
         )
@@ -85,6 +90,7 @@ def test_queue_endpoint_with_forward_queue() -> None:
             forward_to=Queue(
                 name="response-queue",
             ),
+            retry_strategy=NoRetryStrategy(),
         )
     )
 
@@ -98,6 +104,7 @@ def test_queue_endpoint_with_forward_queue() -> None:
                 headers={},
                 forwarded=False,
                 topic=None,
+                is_dead_letter=False,
             ),
         )
     )
@@ -119,6 +126,7 @@ def test_queue_endpoint_with_forward_topic() -> None:
             target=target,
             codec_type="json",
             forward_to="response-topic",
+            retry_strategy=NoRetryStrategy(),
         )
     )
 
@@ -132,6 +140,7 @@ def test_queue_endpoint_with_forward_topic() -> None:
                 headers={},
                 forwarded=False,
                 topic=None,
+                is_dead_letter=False,
             ),
         )
     )
@@ -160,6 +169,7 @@ def test_queue_endpoint_with_forward_and_response_topic_error() -> None:
                 ),
                 topic="response-topic",
             ),
+            retry_strategy=NoRetryStrategy(),
         )
     )
 
@@ -174,6 +184,7 @@ def test_queue_endpoint_with_forward_and_response_topic_error() -> None:
                     headers={},
                     forwarded=False,
                     topic=None,
+                    is_dead_letter=False,
                 ),
             )
         )

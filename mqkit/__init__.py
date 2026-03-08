@@ -9,9 +9,12 @@ __all__ = [
     "consume",
     "create_engine",
     "Exchange",
+    "ImmediateRetryStrategy",
     "NoRetry",
+    "NoRetryStrategy",
     "Queue",
     "Response",
+    "RetryStrategy",
     #
     "apps",
     "credentials",
@@ -37,6 +40,8 @@ from . import logging
 from . import marshal
 from . import messaging
 from . import workers
+
+from .messaging.retry import ImmediateRetryStrategy, NoRetryStrategy, RetryStrategy
 
 from . import consume as _consume
 

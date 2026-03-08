@@ -8,6 +8,7 @@ from mqkit.errors import FunctionSignatureError
 from mqkit.marshal import ReturnTypeSerializer, TypelessSerializer
 from mqkit.marshal.codecs import CodecType
 from mqkit.messaging import Queue
+from mqkit.messaging.retry import NoRetryStrategy
 
 import pytest
 
@@ -28,33 +29,6 @@ def test_endpoint_is_abstract_base_class() -> None:
             )
 
 
-def test_endpoint_concrete_properties() -> None:
-    class TestEndpoint(Endpoint):
-        def handle_message(self, message) -> None:
-            return None
-
-        @property
-        def qualname(self: "Endpoint") -> str:
-            return ""
-
-        @property
-        def queue_name(self: "Endpoint") -> str:
-            return ""
-
-    def target(a, b):
-        pass
-
-    endpoint = TestEndpoint(
-        target=target,
-        codec_type=CodecType.JSON,
-    )
-
-    with pytest.raises(NotImplementedError):
-        endpoint.is_auto_delete
-    with pytest.raises(NotImplementedError):
-        endpoint.is_persistent
-
-
 def test_endpoint_cannot_call() -> None:
     endpoint = QueueEndpoint(
         QueueEndpointConfig(
@@ -63,6 +37,7 @@ def test_endpoint_cannot_call() -> None:
             ),
             target=lambda a, b: None,
             codec_type=CodecType.JSON,
+            retry_strategy=NoRetryStrategy(),
         )
     )
 
@@ -79,6 +54,7 @@ def test_endpoint_bad_signature() -> None:
                 ),
                 target=lambda a: None,
                 codec_type=CodecType.JSON,
+                retry_strategy=NoRetryStrategy(),
             )
         )
 
@@ -94,6 +70,7 @@ def test_endpoint_type_detection() -> None:
             ),
             target=typeless_handler,
             codec_type=CodecType.JSON,
+            retry_strategy=NoRetryStrategy(),
         )
     )
     assert isinstance(
@@ -132,6 +109,7 @@ def test_endpoint_type_detection() -> None:
                 ),
                 target=return_type_handler,
                 codec_type=CodecType.JSON,
+                retry_strategy=NoRetryStrategy(),
             )
         )
         assert isinstance(

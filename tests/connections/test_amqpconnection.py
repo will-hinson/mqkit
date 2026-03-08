@@ -10,6 +10,7 @@ from mqkit.endpoints.config import QueueEndpointConfig
 from mqkit.engines import RabbitMqEngine
 from mqkit.errors import ShutdownRequested
 from mqkit.messaging import Exchange, Forward, Queue, QueueMessage
+from mqkit.messaging.retry import NoRetryStrategy
 
 import pytest
 import requests
@@ -192,11 +193,13 @@ def test_amqp_connection_forwarding_exchange(rabbitmq_engine: RabbitMqEngine) ->
             # verify the source queue is empty and the target queue has the forwarded message
             wait_to_assert(lambda: source_queue.size == 0, timeout=ASSERT_TIMEOUT)
             wait_to_assert(
-                lambda: requests.get(
-                    build_management_url("/api/queues/%2F/unmanaged_queue"),
-                    auth=(TEST_USERNAME, TEST_PASSWORD),
-                ).json()["messages"]
-                == 1,
+                lambda: (
+                    requests.get(
+                        build_management_url("/api/queues/%2F/unmanaged_queue"),
+                        auth=(TEST_USERNAME, TEST_PASSWORD),
+                    ).json()["messages"]
+                    == 1
+                ),
                 timeout=ASSERT_TIMEOUT,
                 allow={JSONDecodeError},
             )
@@ -291,6 +294,7 @@ def test_amqp_connection_forwarding_with_headers(
                 codec_type="json",
                 target=lambda x, y: x,
                 forward_to="target_queue",
+                retry_strategy=NoRetryStrategy(),
             )
         )
         response = Response(
@@ -362,6 +366,7 @@ def test_amqp_connection_forwarding_with_topic(
                     resource=Queue(name=target_queue_name),
                     topic="my.topic",
                 ),
+                retry_strategy=NoRetryStrategy(),
             )
         )
         response = Response(
@@ -386,11 +391,13 @@ def test_amqp_connection_forwarding_with_topic(
         # forward the message using the connection then retrieve it from the target queue
         connection.forward_message(forward)
         wait_to_assert(
-            lambda: requests.get(
-                build_management_url(f"/api/queues/%2F/{target_queue_name}"),
-                auth=(TEST_USERNAME, TEST_PASSWORD),
-            ).json()["messages"]
-            == 1,
+            lambda: (
+                requests.get(
+                    build_management_url(f"/api/queues/%2F/{target_queue_name}"),
+                    auth=(TEST_USERNAME, TEST_PASSWORD),
+                ).json()["messages"]
+                == 1
+            ),
             timeout=ASSERT_TIMEOUT,
             allow={JSONDecodeError},
         )
