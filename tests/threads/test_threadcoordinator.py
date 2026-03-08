@@ -2,6 +2,8 @@ from threading import Thread
 import time
 from typing import Optional
 
+import requests
+
 from mqkit.endpoints import QueueEndpoint
 from mqkit.endpoints.config import QueueEndpointConfig
 from mqkit.engines import create_engine
@@ -21,6 +23,7 @@ from ..common import (
     TEST_PORT,
     TEST_HOST,
     TEST_VHOST,
+    build_management_url,
     wait_to_assert,
 )
 
@@ -59,7 +62,7 @@ def test_threadcoordinator_bad_endpoint_function(
 def test_threadcoordinator_keyboard_interrupt(
     rabbitmq_engine: RabbitMqEngine,
 ) -> None:
-    with ManagedQueue("some_queue") as managed_queue:
+    with ManagedQueue("threadcoordinator_keyboard_interrupt") as managed_queue:
         counter: int = 0
 
         def sync_function(message, attributes):
@@ -113,7 +116,7 @@ def test_threadcoordinator_keyboard_interrupt(
 def test_threadcoordinator_single_endpoint(
     rabbitmq_engine: RabbitMqEngine,
 ) -> None:
-    with ManagedQueue("some_queue") as managed_queue:
+    with ManagedQueue("threadcoordinator_single_endpoint") as managed_queue:
         counter: int = 0
 
         def sync_function(message, attributes):
@@ -185,7 +188,7 @@ def test_threadcoordinator_worker_crash_no_recovery(
         except Exception as e:
             coordinator_exception = e
 
-    with ManagedQueue("some_queue") as managed_queue:
+    with ManagedQueue("threadcoordinator_worker_crash_no_recovery") as managed_queue:
         counter: int = 0
 
         def sync_function(message, attributes):
@@ -258,7 +261,9 @@ def test_threadcoordinator_worker_crash_with_recovery(
         except Exception as e:
             coordinator_exception = e
 
-    with ManagedQueue("some_queue") as managed_queue:
+    queue_name: str
+    with ManagedQueue("threadcoordinator_worker_crash_with_recovery") as managed_queue:
+        queue_name = managed_queue.name
         counter: int = 0
 
         def sync_function(message, attributes):

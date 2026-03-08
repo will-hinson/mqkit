@@ -74,7 +74,7 @@ def test_app_events(rabbitmq_engine: RabbitMqEngine) -> None:
 def test_app_register_queue(rabbitmq_engine: RabbitMqEngine) -> None:
     app: App = App()
 
-    with ManagedQueue("test_queue") as managed_queue:
+    with ManagedQueue("app_register_queue") as managed_queue:
 
         @app.queue(managed_queue.name)
         def test_queue(message, attributes):
@@ -152,7 +152,10 @@ def test_app_declare_exchange(rabbitmq_engine: RabbitMqEngine) -> None:
         )
         assert response.ok or response.status_code == 404
 
-    with ManagedQueue("test_queue") as mq1, ManagedQueue("another_test_queue") as mq2:
+    with (
+        ManagedQueue("app_declare_exchange") as mq1,
+        ManagedQueue("app_declare_exchange_2") as mq2,
+    ):
         mq1.define()
         mq2.define()
         wait_to_assert(

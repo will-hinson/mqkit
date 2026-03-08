@@ -56,6 +56,17 @@ def test_amqp_connection_init(rabbitmq_engine: RabbitMqEngine) -> None:
             )
         )
 
+    response = requests.delete(
+        build_management_url("/api/queues/%2F/my_queue"),
+        auth=(TEST_USERNAME, TEST_PASSWORD),
+    )
+    assert response.ok
+    response = requests.delete(
+        build_management_url("/api/exchanges/%2F/mqkit.resubmit.my_queue"),
+        auth=(TEST_USERNAME, TEST_PASSWORD),
+    )
+    assert response.ok
+
 
 def test_amqp_connection_not_connected(rabbitmq_engine: RabbitMqEngine) -> None:
     connection: AmqpConnection = rabbitmq_engine.connect(queue="my_queue")
@@ -203,7 +214,7 @@ def test_amqp_connection_forwarding_exchange(rabbitmq_engine: RabbitMqEngine) ->
                 timeout=ASSERT_TIMEOUT,
                 allow={JSONDecodeError},
             )
-    except Exception as e:
+    finally:
         # clean up the unmanaged exchange and its bindings
         response = requests.delete(
             build_management_url("/api/queues/%2F/unmanaged_queue"),
@@ -215,7 +226,6 @@ def test_amqp_connection_forwarding_exchange(rabbitmq_engine: RabbitMqEngine) ->
             auth=(TEST_USERNAME, TEST_PASSWORD),
         )
         assert response.ok
-        raise e
 
 
 def test_amqp_connection_forwarding_queue(rabbitmq_engine: RabbitMqEngine) -> None:

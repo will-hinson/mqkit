@@ -45,7 +45,7 @@ def test_immediateretrystrategy_basic(rabbitmq_engine: RabbitMqEngine) -> None:
     target_retries: int = 3
 
     app: App = App()
-    with ManagedQueue("test_queue") as managed_queue:
+    with ManagedQueue("immediateretrystrategy_basic") as managed_queue:
         try_count: int = 0
         last_message: Dict
         last_attributes: Attributes
@@ -108,7 +108,7 @@ def test_immediateretrystrategy_marshal_error_no_retry(
     """Test that messages that fail due to a MarshalError do not get retried since they are likely malformed and will continue to fail on retry"""
 
     app: App = App()
-    with ManagedQueue("test_queue") as managed_queue:
+    with ManagedQueue("immediateretrystrategy_marshal_error_no_retry") as managed_queue:
         try_count: int = 0
 
         @app.queue(
@@ -148,7 +148,7 @@ def test_immediateretrystrategy_zero_retries(rabbitmq_engine: RabbitMqEngine) ->
     """Test that if the retry strategy is configured with 0 retries, the message does not get retried at all"""
 
     app: App = App()
-    with ManagedQueue("test_queue") as managed_queue:
+    with ManagedQueue("immediateretrystrategy_zero_retries") as managed_queue:
         try_count: int = 0
 
         @app.queue(
@@ -184,7 +184,7 @@ def test_immediateretrystrategy_invalid_retry_count(
     as having 0 retries so that it gets retried up to the max retries
     """
 
-    with ManagedQueue("test_queue") as managed_queue:
+    with ManagedQueue("immediateretrystrategy_invalid_retry_count") as managed_queue:
         app: App = App()
 
         last_attributes: Attributes
@@ -231,7 +231,9 @@ def test_immediateretrystrategy_invalid_exception_history(
     and retry the message up to the max retries
     """
 
-    with ManagedQueue("test_queue") as managed_queue:
+    with ManagedQueue(
+        "immediateretrystrategy_invalid_exception_history"
+    ) as managed_queue:
         app: App = App()
 
         first_attributes: Attributes
@@ -281,7 +283,10 @@ def test_immediateretrystrategy_dlq(
     """Test that messages that exhaust their retries get forwarded to the dead-letter destination if configured"""
 
     app: App = App()
-    with ManagedQueue("test_queue") as managed_queue, ManagedQueue("dlq") as dlq:
+    with (
+        ManagedQueue("immediateretrystrategy_dlq") as managed_queue,
+        ManagedQueue("immediateretrystrategy_dlq_dest") as dlq,
+    ):
         managed_queue.define()
         dlq.define()
 
@@ -386,7 +391,10 @@ def test_immediateretrystrategy_dl_exchange(rabbitmq_engine: RabbitMqEngine) -> 
 
     app: App = App()
 
-    with ManagedQueue("test_queue") as managed_queue, ManagedQueue("dlq") as dlq:
+    with (
+        ManagedQueue("immediateretrystrategy_dl_exchange") as managed_queue,
+        ManagedQueue("immediateretrystrategy_dl_exchange_dest") as dlq,
+    ):
         managed_queue.define()
         dlq.define()
 
