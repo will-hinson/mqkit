@@ -6,7 +6,7 @@ A module defining a threaded worker for processing messages from a message queue
 
 import logging
 from logging import Logger
-from queue import Queue as ProcessQueue
+from queue import Queue as ProcessQueue, ShutDown
 from threading import Event, Thread
 from typing import Optional, Union
 
@@ -139,7 +139,13 @@ class ThreadWorker(Worker, Thread):
         self._started_event.set()
         if self.error is not None and self._error_queue is not None:
             # submit this worker to the error queue if we exited unexpectedly
-            self._error_queue.put(self)
+            try:
+                self._error_queue.put(self)
+            except ShutDown:
+                self._logger.warning(
+                    "Failed to submit %s to error queue because it is shut down",
+                    self.name,
+                )
 
     def stop(self: "ThreadWorker", message: Optional[str] = None) -> None:
         """

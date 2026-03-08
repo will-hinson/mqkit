@@ -10,7 +10,7 @@ import functools
 import json
 from logging import Logger
 import logging
-from queue import Queue as ProcessQueue
+from queue import Queue as ProcessQueue, ShutDown
 import threading
 from typing import Any, ClassVar, Dict, List, Optional, Set
 
@@ -570,4 +570,9 @@ class AmqpConnection(Connection, BaseModel):
         if self._connection is None:
             raise RuntimeError("AMQP connection is not established")
 
-        self._message_queue.put(AmqpSentinel(message))
+        try:
+            self._message_queue.put(AmqpSentinel(message))
+        except ShutDown:
+            self._logger.warning(
+                "Failed to unblock connection because message queue is shut down"
+            )

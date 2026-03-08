@@ -1,5 +1,4 @@
 from copy import deepcopy
-import queue
 from threading import Thread
 from typing import Dict, List, Optional
 
@@ -7,12 +6,13 @@ from mqkit import App, Exchange, Queue, create_engine, ImmediateRetryStrategy
 from mqkit.engines.rabbitmq import RabbitMqEngine
 from mqkit.errors import ConfigurationError
 from mqkit.messaging.attributes import Attributes
-import pytest
-
 from mqkit.messaging.destination import Destination
+import pytest
+import requests
 
 from ..common import (
     ASSERT_TIMEOUT,
+    build_management_url,
     TEST_HOST,
     TEST_PASSWORD,
     TEST_PORT,
@@ -28,16 +28,6 @@ def rabbitmq_engine() -> RabbitMqEngine:
     return create_engine(
         f"amqp://{TEST_USERNAME}:{TEST_PASSWORD}@{TEST_HOST}:{TEST_PORT}{TEST_VHOST}"
     )  # type: ignore
-
-
-def stop_app_permissive(app: App) -> None:
-    """
-    Stop the app, but ignore any exceptions that occur during stopping to ensure that the app is stopped even if there are issues with stopping it
-    """
-    try:
-        app.stop()
-    except queue.ShutDown:
-        pass
 
 
 def test_immediateretrystrategy_basic(rabbitmq_engine: RabbitMqEngine) -> None:
@@ -98,7 +88,7 @@ def test_immediateretrystrategy_basic(rabbitmq_engine: RabbitMqEngine) -> None:
                 "Exception history should contain an entry for each retry attempt"
             )
         finally:
-            stop_app_permissive(app)
+            app.stop()
             app_thread.join()
 
 
@@ -131,7 +121,7 @@ def test_immediateretrystrategy_marshal_error_no_retry(
             wait_to_assert(lambda: managed_queue.size == 0, timeout=ASSERT_TIMEOUT)
             wait_to_assert(lambda: try_count == 0, timeout=ASSERT_TIMEOUT)
         finally:
-            stop_app_permissive(app)
+            app.stop()
             app_thread.join()
 
         wait_to_assert(lambda: managed_queue.size == 0, timeout=ASSERT_TIMEOUT)
@@ -172,7 +162,7 @@ def test_immediateretrystrategy_zero_retries(rabbitmq_engine: RabbitMqEngine) ->
             wait_to_assert(lambda: managed_queue.size == 0, timeout=ASSERT_TIMEOUT)
             wait_to_assert(lambda: try_count == 1, timeout=ASSERT_TIMEOUT)
         finally:
-            stop_app_permissive(app)
+            app.stop()
             app_thread.join()
 
 
@@ -218,7 +208,7 @@ def test_immediateretrystrategy_invalid_retry_count(
                 "Retry count in attributes should be treated as 0 if it is invalid"
             )
         finally:
-            stop_app_permissive(app)
+            app.stop()
             app_thread.join()
 
 
@@ -273,7 +263,7 @@ def test_immediateretrystrategy_invalid_exception_history(
                 "Exception history should be treated as empty if it is invalid"
             )
         finally:
-            stop_app_permissive(app)
+            app.stop()
             app_thread.join()
 
 
@@ -379,7 +369,7 @@ def test_immediateretrystrategy_dlq(
                     "raised in the handler"
                 )
         finally:
-            stop_app_permissive(app)
+            app.stop()
             app_thread.join()
 
 
@@ -467,5 +457,13 @@ def test_immediateretrystrategy_dl_exchange(rabbitmq_engine: RabbitMqEngine) -> 
                 "Message should be forwarded to the configured dl_exchange exchange"
             )
         finally:
-            stop_app_permissive(app)
+            app.stop()
             app_thread.join()
+
+            response = requests.delete(
+                build_management_url("/api/exchanges/%2F/dl_exchange"),
+                auth=(TEST_USERNAME, TEST_PASSWORD),
+            )
+            assert response.ok or response.status_code == 404, (
+                "Failed to delete dl_exchange exchange"
+            )
