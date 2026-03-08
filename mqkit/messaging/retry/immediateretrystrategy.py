@@ -14,7 +14,7 @@ from typing import List, Optional, override
 from pydantic import ValidationError
 
 from ..destination import Destination
-from ...errors import MarshalError
+from ...errors import ConfigurationError, MarshalError
 from .exceptionhistoryentry import ExceptionHistoryEntry
 from ..forwardtarget import ForwardTarget
 from ...messaging import Forward
@@ -42,6 +42,11 @@ class ImmediateRetryStrategy(RetryStrategy):
         dead_letter_destination: Optional[ForwardTarget] = None,
     ) -> None:
         super().__init__()
+
+        if retries < 0:
+            raise ConfigurationError(
+                "Retries must be a non-negative integer",
+            )
 
         self._retries = retries
         self._dead_letter_destination = Destination.from_forward_target(
