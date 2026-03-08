@@ -65,7 +65,7 @@ class AmqpConnection(Connection, BaseModel):
 
     model_config: ClassVar[ConfigDict] = ConfigDict(arbitrary_types_allowed=True)
 
-    def model_post_init(self: "AmqpConnection", context: Any) -> None:
+    def model_post_init(self: "AmqpConnection", context: Any) -> None:  # pylint: disable=arguments-differ
         self._logger = logging.getLogger(
             f"{root_logger_name}.{'.'.join(self.__class__.__module__.split('.')[1:-1])}."
             f"{self.__class__.__name__}.{self.queue}"
