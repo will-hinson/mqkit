@@ -5,12 +5,15 @@ Defines the QueueEndpoint class for processing messages from a message queue.
 """
 
 from copy import copy
-from typing import Optional, override
+from typing import TYPE_CHECKING, Optional, override
 
-from .config import QueueEndpointConfig
 from .endpoint import Endpoint
 from ..errors import NoForwardTargetError
 from ..messaging import Attributes, Destination, Forward, QueueMessage, Response
+from ..messaging.retry import RetryStrategy
+
+if TYPE_CHECKING:
+    from .config import QueueEndpointConfig
 
 
 class QueueEndpoint(Endpoint):
@@ -20,12 +23,12 @@ class QueueEndpoint(Endpoint):
     Represents an endpoint for processing messages from a message queue.
     """
 
-    _config: QueueEndpointConfig
+    _config: "QueueEndpointConfig"
 
     def __init__(
         # pylint: disable=too-many-arguments,too-many-positional-arguments
         self: "QueueEndpoint",
-        config: QueueEndpointConfig,
+        config: "QueueEndpointConfig",
     ) -> None:
         super().__init__(
             target=config.target,
@@ -57,6 +60,7 @@ class QueueEndpoint(Endpoint):
                         forwarded=True,
                         origin_queue=self._config.queue.name,
                         topic=response.topic or self._config.forward_to.topic,
+                        is_dead_letter=False,
                     ),
                 ),
             )
@@ -122,3 +126,7 @@ class QueueEndpoint(Endpoint):
     @property
     def queue_name(self: "QueueEndpoint") -> str:
         return copy(self._config.queue.name)
+
+    @property
+    def retry_strategy(self: "QueueEndpoint") -> RetryStrategy:
+        return self._config.retry_strategy

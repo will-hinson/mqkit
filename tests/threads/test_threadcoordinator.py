@@ -8,6 +8,7 @@ from mqkit.engines import create_engine
 from mqkit.engines.rabbitmq import RabbitMqEngine
 from mqkit.errors import FunctionTypeError, WorkerTerminatedError
 from mqkit.messaging import Queue
+from mqkit.messaging.retry.noretrystrategy import NoRetryStrategy
 from mqkit.workers.threaded import ThreadCoordinator
 
 import pytest
@@ -47,6 +48,7 @@ def test_threadcoordinator_bad_endpoint_function(
                         ),
                         target=async_function,
                         codec_type="json",
+                        retry_strategy=NoRetryStrategy(),
                     )
                 )
             ],
@@ -75,6 +77,7 @@ def test_threadcoordinator_keyboard_interrupt(
                         ),
                         target=sync_function,
                         codec_type="json",
+                        retry_strategy=NoRetryStrategy(),
                     )
                 )
             ],
@@ -128,6 +131,7 @@ def test_threadcoordinator_single_endpoint(
                         ),
                         target=sync_function,
                         codec_type="json",
+                        retry_strategy=NoRetryStrategy(),
                     )
                 )
             ],
@@ -199,6 +203,7 @@ def test_threadcoordinator_worker_crash_no_recovery(
                         ),
                         target=sync_function,
                         codec_type="json",
+                        retry_strategy=NoRetryStrategy(),
                     )
                 )
             ],
@@ -212,8 +217,8 @@ def test_threadcoordinator_worker_crash_no_recovery(
         coordinator_thread.start()
 
         wait_to_assert(
-            lambda: not (
-                coordinator_thread.is_alive() or coordinator_exception is None
+            lambda: (
+                not (coordinator_thread.is_alive() or coordinator_exception is None)
             ),
             timeout=ASSERT_TIMEOUT,
         )
@@ -271,6 +276,7 @@ def test_threadcoordinator_worker_crash_with_recovery(
                         ),
                         target=sync_function,
                         codec_type="json",
+                        retry_strategy=NoRetryStrategy(),
                     )
                 )
             ],
