@@ -425,7 +425,7 @@ class App:
 
         for endpoint in self._endpoints:
             # ignore any endpoints that aren't pointing at a queue
-            if not isinstance(endpoint, QueueEndpoint):
+            if not isinstance(endpoint, QueueEndpoint):  # pragma: no cover
                 raise NotImplementedError(
                     f"{type(endpoint)} not implemented for forward target validation"
                 )

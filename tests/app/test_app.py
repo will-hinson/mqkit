@@ -1,14 +1,17 @@
 from threading import Thread
 from typing import Set
 import uuid
+import warnings
 
 from mqkit import App, Queue, create_engine
 from mqkit.declarations.queuedeclaration import QueueDeclaration
 from mqkit.engines.rabbitmq import RabbitMqEngine
 from mqkit.errors import FunctionTypeError
+from mqkit.warnings import UnboundQueueWarning
 
 import pytest
 import requests
+
 
 from ..common import (
     ASSERT_TIMEOUT,
@@ -315,3 +318,31 @@ def test_app_declare_queue(rabbitmq_engine: RabbitMqEngine) -> None:
             auth=(TEST_USERNAME, TEST_PASSWORD),
         )
         assert response.ok
+
+
+def test_app_unboundqueuewarning(rabbitmq_engine: RabbitMqEngine) -> None:
+    app: App = App()
+
+    with warnings.catch_warnings(record=True) as warning_catcher:
+        warnings.simplefilter("always")
+
+        @app.queue("another_test_queue", forward_to="bound_queue")
+        def another_test_queue(message, attributes):
+            return {
+                "response": "Message processed by another_test_queue"
+            }, "another_unbound_queue"
+
+        @app.queue("bound_queue")
+        def bound_queue(message, attributes):
+            return {"response": "Message processed by bound_queue"}
+
+        app._validate_forward_targets()
+        assert len(warning_catcher) == 0
+
+    with pytest.warns(UnboundQueueWarning):
+
+        @app.queue("test_queue", forward_to="unbound_queue")
+        def test_queue(message, attributes):
+            return {"response": "Message processed by test_queue"}, "unbound_queue"
+
+        app._validate_forward_targets()
