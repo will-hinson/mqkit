@@ -10,8 +10,9 @@ import inspect
 from typing import Any, Callable, Dict, NoReturn, Optional, Type, TypeAlias, Union
 
 from mqkit.messaging.attributes import Attributes
+from pydantic import ValidationError
 
-from ..errors import FunctionSignatureError
+from ..errors import FunctionSignatureError, MarshalError
 from ..marshal import (
     FullyTypedSerializer,
     ReturnTypeSerializer,
@@ -39,6 +40,8 @@ _codec_type_to_class: Dict[CodecType, Type[Codec]] = {
 EndpointCallback: TypeAlias = Callable[
     [Any, Attributes], Optional[Union[Response, bytes]]
 ]
+EndpointExceptionHandler: TypeAlias = Callable[[bytes, Attributes, Exception], None]
+EndpointDecodeException: TypeAlias = Union[MarshalError, ValidationError]
 
 
 class Endpoint(metaclass=ABCMeta):

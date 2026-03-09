@@ -7,15 +7,18 @@ Contains the definition of the App class for building message queue applications
 import inspect
 import logging
 from logging import Logger
-from typing import Callable, Dict, List, Optional, Set, Union
+from typing import Callable, Dict, List, Optional, Set, Type, Union
 import warnings
+
+from pydantic import ValidationError
 
 from .concurrencymode import ConcurrencyMode
 from ..declarations import Declaration, ExchangeDeclaration, QueueDeclaration
 from ..endpoints import Endpoint, EndpointFactory, QueueEndpoint
 from ..endpoints.config import QueueEndpointConfig
+from ..endpoints.endpoint import EndpointDecodeException, EndpointExceptionHandler
 from ..engines import Engine
-from ..errors import FunctionTypeError
+from ..errors import DecodeError, FunctionTypeError
 from ..events import AppEventType
 from ..logging import root_logger_name
 from ..marshal.codecs import CodecType
@@ -68,6 +71,22 @@ class App:
                     f"'{self.concurrency_mode.value}'"
                 )
             )
+
+    def _build_error_handlers_dict(
+        self: "App",
+        on_decode_error: Optional[EndpointExceptionHandler] = None,
+        on_validation_error: Optional[EndpointExceptionHandler] = None,
+    ) -> Dict[Type[EndpointDecodeException], EndpointExceptionHandler]:
+        error_handlers: Dict[
+            Type[EndpointDecodeException], EndpointExceptionHandler
+        ] = {}
+
+        if on_decode_error is not None:
+            error_handlers[DecodeError] = on_decode_error
+        if on_validation_error is not None:
+            error_handlers[ValidationError] = on_validation_error
+
+        return error_handlers
 
     @property
     def concurrency_mode(self: "App") -> ConcurrencyMode:
@@ -275,6 +294,8 @@ class App:
         auto_delete: bool = False,
         retry_strategy: Optional[RetryStrategy] = None,
         dead_letter: Optional[ForwardTarget] = None,
+        on_decode_error: Optional[EndpointExceptionHandler] = None,
+        on_validation_error: Optional[EndpointExceptionHandler] = None,
     ) -> Callable[[Callable], QueueEndpoint]:
         """
         Decorator to register a function as a queue endpoint.
@@ -320,6 +341,10 @@ class App:
                         forward_to=forward_to,
                         retry_strategy=retry_strategy,
                         dead_letter=dead_letter,
+                        error_handlers=self._build_error_handlers_dict(
+                            on_decode_error=on_decode_error,
+                            on_validation_error=on_validation_error,
+                        ),
                     )
                 )
             )

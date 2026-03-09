@@ -4,11 +4,15 @@ module mqkit.endpoints.config.queueendpointconfig
 Defines the QueueEndpointConfig model for configuring queue endpoints.
 """
 
-from typing import ClassVar, Optional, Union
+from typing import ClassVar, Dict, Optional, Type, Union
 
 from pydantic import BaseModel, ConfigDict
 
-from ..endpoint import EndpointCallback
+from ..endpoint import (
+    EndpointCallback,
+    EndpointDecodeException,
+    EndpointExceptionHandler,
+)
 from ..endpointfactory import EndpointFactory
 from ...marshal.codecs import CodecType
 from ...messaging import Destination, ForwardTarget, Queue
@@ -28,6 +32,7 @@ class QueueEndpointConfig(BaseModel):
     forward_to: Optional[Destination] = None
     dead_letter: Optional[Destination] = None
     retry_strategy: RetryStrategy
+    error_handlers: Dict[Type[EndpointDecodeException], EndpointExceptionHandler] = {}
 
     model_config: ClassVar[ConfigDict] = ConfigDict(
         arbitrary_types_allowed=True,
