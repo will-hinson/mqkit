@@ -88,6 +88,7 @@ class ThreadWorker(Worker, Thread):
                     message=message,
                     exception=exc,
                     received_queue=self._endpoint.queue_name,
+                    dead_letter_destination=self._endpoint.dead_letter,
                 )
             )
 

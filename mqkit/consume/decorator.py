@@ -12,6 +12,8 @@ import os
 import sys
 from typing import Callable, NoReturn, Optional, Union
 
+from mqkit.messaging.forwardtarget import ForwardTarget
+
 from ..engines import create_engine, Engine
 from ..endpoints import EndpointFactory
 from ..endpoints.config import QueueEndpointConfig
@@ -81,6 +83,7 @@ def consume(
     persistent: bool = True,
     auto_delete: bool = False,
     retry_strategy: Optional[RetryStrategy] = None,
+    dead_letter: Optional[ForwardTarget] = None,
 ) -> Callable[[Callable], NoReturn]:
     """
     Blocking decorator to designate a callback function as a consumer for a single message queue.
@@ -138,6 +141,7 @@ def consume(
                 codec_type=codec,
                 forward_to=forward_to,
                 retry_strategy=retry_strategy,
+                dead_letter=dead_letter,
             ),
             engine=engine,
             logger=logger,

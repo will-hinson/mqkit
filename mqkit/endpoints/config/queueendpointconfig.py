@@ -26,6 +26,7 @@ class QueueEndpointConfig(BaseModel):
     target: EndpointCallback
     codec_type: CodecType
     forward_to: Optional[Destination] = None
+    dead_letter: Optional[Destination] = None
     retry_strategy: RetryStrategy
 
     model_config: ClassVar[ConfigDict] = ConfigDict(
@@ -36,6 +37,7 @@ class QueueEndpointConfig(BaseModel):
         self: "QueueEndpointConfig",
         codec_type: Union[CodecType, str],
         forward_to: Optional[ForwardTarget] = None,
+        dead_letter: Optional[ForwardTarget] = None,
         **data,
     ) -> None:  # pragma: no cover
         if isinstance(codec_type, str):
@@ -43,6 +45,9 @@ class QueueEndpointConfig(BaseModel):
 
         data["forward_to"] = EndpointFactory.convert_forward_target_to_destination(
             forward_to
+        )
+        data["dead_letter"] = EndpointFactory.convert_forward_target_to_destination(
+            dead_letter
         )
 
         super().__init__(**data)

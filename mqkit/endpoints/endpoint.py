@@ -25,7 +25,7 @@ from ..marshal.codecs import (
     RawCodec,
     YamlCodec,
 )
-from ..messaging import Forward, QueueMessage, Response
+from ..messaging import Destination, Forward, QueueMessage, Response
 from ..messaging.retry import RetryStrategy
 
 _codec_type_to_class: Dict[CodecType, Type[Codec]] = {
@@ -55,6 +55,20 @@ class Endpoint(metaclass=ABCMeta):
         self._target = self._wrap_with_decode(
             target,
             codec_type=codec_type,
+        )
+
+    @property
+    @abstractmethod
+    def dead_letter(self: "Endpoint") -> Optional[Destination]:  # pragma: no cover
+        """
+        Property that returns the dead letter destination for this endpoint, if any.
+
+        Returns:
+            Optional[Destination]: The dead letter destination, or None if not configured.
+        """
+
+        raise NotImplementedError(
+            f"Endpoint of type {type(self).__name__} does not implement dead_letter()"
         )
 
     @abstractmethod

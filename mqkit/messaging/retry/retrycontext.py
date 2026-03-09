@@ -6,10 +6,11 @@ failed message when handling retries. The RetryContext includes the connection, 
 message, and the exception that caused the failure.
 """
 
-from typing import ClassVar
+from typing import ClassVar, Optional
 from pydantic import BaseModel, ConfigDict
 
 from ...connections import Connection
+from ..destination import Destination
 from ..queuemessage import QueueMessage
 
 
@@ -25,6 +26,7 @@ class RetryContext(BaseModel):
     message: QueueMessage
     exception: Exception
     received_queue: str
+    dead_letter_destination: Optional[Destination] = None
 
     model_config: ClassVar[ConfigDict] = ConfigDict(
         arbitrary_types_allowed=True,
