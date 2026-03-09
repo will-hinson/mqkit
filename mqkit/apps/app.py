@@ -7,7 +7,8 @@ Contains the definition of the App class for building message queue applications
 import inspect
 import logging
 from logging import Logger
-from typing import Callable, Dict, List, Optional, Union
+from typing import Callable, Dict, List, Optional, Set, Union
+import warnings
 
 from .concurrencymode import ConcurrencyMode
 from ..declarations import Declaration, ExchangeDeclaration, QueueDeclaration
@@ -20,6 +21,7 @@ from ..logging import root_logger_name
 from ..marshal.codecs import CodecType
 from ..messaging import Exchange, ExchangeType, ForwardTarget, Queue
 from ..messaging.retry import NoRetryStrategy, RetryStrategy
+from ..warnings import UnboundQueueWarning
 from ..workers import Coordinator
 from ..workers.threaded import ThreadCoordinator
 
@@ -354,6 +356,10 @@ class App:
                 f"Unimplemented concurrency mode '{self.concurrency_mode.value}'"
             )
 
+        # validate all forward targets and emit warnings for any misconfigurations
+        # before starting the coordinator
+        self._validate_forward_targets()
+
         # perform any declarations before starting
         self.create_resources(engine)
 
@@ -410,3 +416,38 @@ class App:
             raise RuntimeError("App is not running")
 
         self._coordinator.stop()
+
+    def _validate_forward_targets(self: "App") -> None:
+        # derive a set of names for queue forward targets and for queues that correspond
+        # to a handler
+        forward_destination_queue_names: Dict[Endpoint, str] = {}
+        handler_queue_names: Set[str] = set()
+
+        for endpoint in self._endpoints:
+            # ignore any endpoints that aren't pointing at a queue
+            if not isinstance(endpoint, QueueEndpoint):
+                raise NotImplementedError(
+                    f"{type(endpoint)} not implemented for forward target validation"
+                )
+            handler_queue_names.add(endpoint.queue_name)
+
+            # don't try getting info from endpoints that don't have a forward target that's a queue
+            if endpoint.forward_target is None or not isinstance(
+                endpoint.forward_target.resource, Queue
+            ):
+                continue
+            forward_destination_queue_names[endpoint] = (
+                endpoint.forward_target.resource.name
+            )
+
+        for (
+            source_endpoint,
+            target_queue_name,
+        ) in forward_destination_queue_names.items():
+            if target_queue_name not in handler_queue_names:
+                warnings.warn(
+                    f"Endpoint {source_endpoint.target.__qualname__}() forwards to queue "
+                    f"'{target_queue_name}' but no handler is registered for that queue",
+                    UnboundQueueWarning,
+                    stacklevel=2,
+                )

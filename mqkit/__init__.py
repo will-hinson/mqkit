@@ -26,6 +26,7 @@ __all__ = [
     "logging",
     "marshal",
     "messaging",
+    "warnings",
     "workers",
 ]
 
@@ -39,6 +40,7 @@ from . import events
 from . import logging
 from . import marshal
 from . import messaging
+from . import warnings
 from . import workers
 
 from .messaging.retry import ImmediateRetryStrategy, NoRetryStrategy, RetryStrategy
