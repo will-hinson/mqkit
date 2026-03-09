@@ -85,7 +85,7 @@ def handler(message: ChatMessage, attributes: Attributes) -> None:
 
 
 """
-Invalid message raise exceptions and don't call the handler:
+Invalid messages raise exceptions and don't call the handler:
 
 'invalid message' -> DecodeError
 {}                -> ValidationError
