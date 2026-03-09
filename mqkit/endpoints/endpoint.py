@@ -9,7 +9,6 @@ import functools
 import inspect
 from typing import Any, Callable, Dict, NoReturn, Optional, Type, TypeAlias, Union
 
-from mqkit.messaging.attributes import Attributes
 from pydantic import ValidationError
 
 from ..errors import FunctionSignatureError, MarshalError
@@ -27,7 +26,7 @@ from ..marshal.codecs import (
     RawCodec,
     YamlCodec,
 )
-from ..messaging import Destination, Forward, QueueMessage, Response
+from ..messaging import Attributes, Destination, Forward, QueueMessage, Response
 from ..messaging.retry import RetryStrategy
 
 _codec_type_to_class: Dict[CodecType, Type[Codec]] = {

@@ -7,18 +7,16 @@ Contains the definition of the App class for building message queue applications
 import inspect
 import logging
 from logging import Logger
-from typing import Callable, Dict, List, Optional, Set, Type, Union
+from typing import Callable, Dict, List, Optional, Set, Union
 import warnings
-
-from pydantic import ValidationError
 
 from .concurrencymode import ConcurrencyMode
 from ..declarations import Declaration, ExchangeDeclaration, QueueDeclaration
 from ..endpoints import Endpoint, EndpointFactory, QueueEndpoint
 from ..endpoints.config import QueueEndpointConfig
-from ..endpoints.endpoint import EndpointDecodeException, EndpointExceptionHandler
+from ..endpoints.endpoint import EndpointExceptionHandler
 from ..engines import Engine
-from ..errors import DecodeError, FunctionTypeError
+from ..errors import FunctionTypeError
 from ..events import AppEventType
 from ..logging import root_logger_name
 from ..marshal.codecs import CodecType

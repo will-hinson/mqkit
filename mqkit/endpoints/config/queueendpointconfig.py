@@ -63,6 +63,12 @@ class QueueEndpointConfig(BaseModel):
         on_decode_error: Optional[EndpointExceptionHandler] = None,
         on_validation_error: Optional[EndpointExceptionHandler] = None,
     ) -> Dict[Type[EndpointDecodeException], EndpointExceptionHandler]:
+        """
+        Constructs a dict mapping exception types to error handler methods. Intended to
+        provide standard exception type mappings for public facing interfaces like
+        app.queue() and @consume()
+        """
+
         error_handlers: Dict[
             Type[EndpointDecodeException], EndpointExceptionHandler
         ] = {}
