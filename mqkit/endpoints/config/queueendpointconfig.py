@@ -6,7 +6,7 @@ Defines the QueueEndpointConfig model for configuring queue endpoints.
 
 from typing import ClassVar, Dict, Optional, Type, Union
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, ValidationError
 
 from ..endpoint import (
     EndpointCallback,
@@ -14,6 +14,7 @@ from ..endpoint import (
     EndpointExceptionHandler,
 )
 from ..endpointfactory import EndpointFactory
+from ...errors import DecodeError
 from ...marshal.codecs import CodecType
 from ...messaging import Destination, ForwardTarget, Queue
 from ...messaging.retry import RetryStrategy
@@ -56,3 +57,19 @@ class QueueEndpointConfig(BaseModel):
         )
 
         super().__init__(**data)
+
+    @staticmethod
+    def make_error_handlers_dict(
+        on_decode_error: Optional[EndpointExceptionHandler] = None,
+        on_validation_error: Optional[EndpointExceptionHandler] = None,
+    ) -> Dict[Type[EndpointDecodeException], EndpointExceptionHandler]:
+        error_handlers: Dict[
+            Type[EndpointDecodeException], EndpointExceptionHandler
+        ] = {}
+
+        if on_decode_error is not None:
+            error_handlers[DecodeError] = on_decode_error
+        if on_validation_error is not None:
+            error_handlers[ValidationError] = on_validation_error
+
+        return error_handlers
