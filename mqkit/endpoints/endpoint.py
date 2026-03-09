@@ -13,6 +13,7 @@ from mqkit.messaging.attributes import Attributes
 
 from ..errors import FunctionSignatureError
 from ..marshal import (
+    FullyTypedSerializer,
     ReturnTypeSerializer,
     Serializer,
     TypelessSerializer,
@@ -223,10 +224,16 @@ class Endpoint(metaclass=ABCMeta):
         if "return" in func.__annotations__ and len(func.__annotations__) == 1:
             return self._make_serializer_return_type(function=func, codec=codec)
 
-        raise FunctionSignatureError(
-            "Unable to infer serializer type from function annotations for function "
-            f"{func.__name__}()"
-        )  # pragma: no cover
+        # just try constructing a fully-typed serializer. it will raise an appropriate
+        # FunctionSignatureError if it can't make sense of the signature
+        return self._make_serializer_fully_typed(function=func, codec=codec)
+
+    def _make_serializer_fully_typed(
+        self: "Endpoint",
+        function: Callable,
+        codec: Codec,
+    ) -> Serializer:
+        return FullyTypedSerializer(function=function, codec=codec)
 
     def _make_serializer_return_type(
         self: "Endpoint",
