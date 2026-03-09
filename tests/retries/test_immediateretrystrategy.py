@@ -284,12 +284,12 @@ def test_immediateretrystrategy_dlq(
 
         @app.queue(
             managed_queue.name,
+            dead_letter=Destination(
+                resource=Queue(name=dlq.name),
+                topic="test_topic",
+            ),
             retry_strategy=ImmediateRetryStrategy(
                 retries=3,
-                dead_letter_destination=Destination(
-                    resource=Queue(name=dlq.name),
-                    topic="test_topic",
-                ),
             ),
         )
         def test_queue(message, attributes):
@@ -404,14 +404,14 @@ def test_immediateretrystrategy_dl_exchange(rabbitmq_engine: RabbitMqEngine) -> 
 
         @app.queue(
             managed_queue.name,
+            dead_letter=Destination(
+                resource=Exchange(
+                    name="dl_exchange",
+                ),
+                topic="test_topic",
+            ),
             retry_strategy=ImmediateRetryStrategy(
                 retries=3,
-                dead_letter_destination=Destination(
-                    resource=Exchange(
-                        name="dl_exchange",
-                    ),
-                    topic="test_topic",
-                ),
             ),
         )
         def test_queue(message, attributes):
