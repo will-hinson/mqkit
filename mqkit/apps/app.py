@@ -18,7 +18,7 @@ from ..errors import FunctionTypeError
 from ..events import AppEventType
 from ..logging import root_logger_name
 from ..marshal.codecs import CodecType
-from ..messaging import Destination, Exchange, ExchangeType, Queue
+from ..messaging import Exchange, ExchangeType, ForwardTarget, Queue
 from ..messaging.retry import NoRetryStrategy, RetryStrategy
 from ..workers import Coordinator
 from ..workers.threaded import ThreadCoordinator
@@ -268,10 +268,11 @@ class App:
         name: str,
         *,
         codec: Optional[CodecType | str] = None,
-        forward_to: Optional[Union[str, Queue, Exchange, Destination]] = None,
+        forward_to: Optional[ForwardTarget] = None,
         persistent: bool = True,
         auto_delete: bool = False,
         retry_strategy: Optional[RetryStrategy] = None,
+        dead_letter: Optional[ForwardTarget] = None,
     ) -> Callable[[Callable], QueueEndpoint]:
         """
         Decorator to register a function as a queue endpoint.
@@ -316,6 +317,7 @@ class App:
                         codec_type=codec,
                         forward_to=forward_to,
                         retry_strategy=retry_strategy,
+                        dead_letter=dead_letter,
                     )
                 )
             )
