@@ -8,12 +8,10 @@ destination for further analysis or handling.
 """
 
 import traceback
-from typing import Optional, override
+from typing import override
 
-from ..destination import Destination
 from ...errors import ConfigurationError, MarshalError
 from ..exceptionhistoryentry import ExceptionHistoryEntry
-from ..forwardtarget import ForwardTarget
 from ..forward import Forward
 from .retrycontext import RetryContext
 from .retrystrategy import RetryStrategy
@@ -31,12 +29,10 @@ class ImmediateRetryStrategy(RetryStrategy):
     # pylint: disable=too-few-public-methods
 
     _retries: int
-    _dead_letter_destination: Optional[Destination]
 
     def __init__(
         self: "ImmediateRetryStrategy",
         retries: int,
-        dead_letter_destination: Optional[ForwardTarget] = None,
     ) -> None:
         super().__init__()
 
@@ -46,9 +42,6 @@ class ImmediateRetryStrategy(RetryStrategy):
             )
 
         self._retries = retries
-        self._dead_letter_destination = Destination.from_forward_target(
-            dead_letter_destination
-        )
 
     @override
     def handle_failure(self: "ImmediateRetryStrategy", context: RetryContext) -> None:
@@ -84,19 +77,19 @@ class ImmediateRetryStrategy(RetryStrategy):
         )
 
     def _forward_to_dlq(self: "ImmediateRetryStrategy", context: RetryContext) -> None:
-        if self._dead_letter_destination is None:
+        if context.dead_letter_destination is None:
             self._logger.warning(
                 "No dead letter destination configured, message will be discarded"
             )
         else:
             self._logger.info(
                 "Forwarding failed message to dead letter destination: %s",
-                self._dead_letter_destination,
+                context.dead_letter_destination,
             )
 
             # set up the message with the appropriate dlq context
-            if self._dead_letter_destination.topic is not None:
-                context.message.attributes.topic = self._dead_letter_destination.topic
+            if context.dead_letter_destination.topic is not None:
+                context.message.attributes.topic = context.dead_letter_destination.topic
             context.message.attributes.headers["x-mqkit-previous-retry-count"] = str(
                 context.message.attributes.retry_count
             )
@@ -110,7 +103,7 @@ class ImmediateRetryStrategy(RetryStrategy):
 
             context.connection.forward_message(
                 Forward(
-                    forward_target=self._dead_letter_destination.resource,
+                    forward_target=context.dead_letter_destination.resource,
                     message=context.message,
                 )
             )
