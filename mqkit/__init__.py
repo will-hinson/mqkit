@@ -49,6 +49,7 @@ consume = _consume.consume
 del _consume
 
 App = apps.App
+Attributes = messaging.Attributes
 create_engine = engines.create_engine
 Exchange = messaging.Exchange
 NoRetry = errors.NoRetry
