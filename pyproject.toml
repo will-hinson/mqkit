@@ -18,6 +18,12 @@ dependencies = [
     "pytest-mock (>=3.15.1,<4.0.0)",
 ]
 
+[project.urls]
+Homepage = "https://github.com/will-hinson/mqkit"
+Repository = "https://github.com/will-hinson/mqkit"
+Documentation = "https://github.com/will-hinson/mqkit#readme"
+Issues = "https://github.com/will-hinson/mqkit/issues"
+
 [tool.poetry]
 
 [tool.poetry.group.dev.dependencies]
