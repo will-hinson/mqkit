@@ -14,6 +14,7 @@ from .concurrencymode import ConcurrencyMode
 from ..declarations import Declaration, ExchangeDeclaration, QueueDeclaration
 from ..endpoints import Endpoint, EndpointFactory, QueueEndpoint
 from ..endpoints.config import QueueEndpointConfig
+from ..endpoints.endpoint import EndpointExceptionHandler
 from ..engines import Engine
 from ..errors import FunctionTypeError
 from ..events import AppEventType
@@ -275,6 +276,8 @@ class App:
         auto_delete: bool = False,
         retry_strategy: Optional[RetryStrategy] = None,
         dead_letter: Optional[ForwardTarget] = None,
+        on_decode_error: Optional[EndpointExceptionHandler] = None,
+        on_validation_error: Optional[EndpointExceptionHandler] = None,
     ) -> Callable[[Callable], QueueEndpoint]:
         """
         Decorator to register a function as a queue endpoint.
@@ -320,6 +323,10 @@ class App:
                         forward_to=forward_to,
                         retry_strategy=retry_strategy,
                         dead_letter=dead_letter,
+                        error_handlers=QueueEndpointConfig.make_error_handlers_dict(
+                            on_decode_error=on_decode_error,
+                            on_validation_error=on_validation_error,
+                        ),
                     )
                 )
             )

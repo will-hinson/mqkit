@@ -4,6 +4,7 @@ from mqkit import Response
 from mqkit.endpoints import QueueEndpoint
 from mqkit.endpoints.config import QueueEndpointConfig
 from mqkit.errors import NoForwardTargetError
+from mqkit.errors.decodeerror import DecodeError
 from mqkit.messaging import Attributes, Forward, Queue, QueueMessage
 
 import pytest
@@ -188,3 +189,49 @@ def test_queue_endpoint_with_forward_and_response_topic_error() -> None:
                 ),
             )
         )
+
+
+def test_queue_endpoint_error_handlers() -> None:
+    error_handler_called: bool = False
+
+    def target(message, attributes):
+        raise ValueError("Test error")
+
+    def error_handler(message, attributes, error):
+        nonlocal error_handler_called
+        error_handler_called = True
+
+    endpoint = QueueEndpoint(
+        QueueEndpointConfig(
+            queue=Queue(
+                name="test-queue",
+            ),
+            target=target,
+            codec_type="json",
+            forward_to=Destination(
+                resource=Queue(
+                    name="response-queue",
+                ),
+                topic="response-topic",
+            ),
+            retry_strategy=NoRetryStrategy(),
+            error_handlers={DecodeError: error_handler},
+        )
+    )
+
+    assert endpoint.queue_name == "test-queue"
+    assert endpoint.target.__code__ != target.__code__
+
+    with pytest.raises(DecodeError):
+        endpoint.handle_message(
+            QueueMessage(
+                data=b"bad data!",
+                attributes=Attributes(
+                    headers={},
+                    forwarded=False,
+                    topic=None,
+                    is_dead_letter=False,
+                ),
+            )
+        )
+        assert error_handler_called

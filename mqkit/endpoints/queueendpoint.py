@@ -103,10 +103,22 @@ class QueueEndpoint(Endpoint):
                 queue was specified.
         """
 
-        result: Optional[Response] = self.target(
-            message=message.data,
-            attributes=message.attributes,
-        )
+        result: Optional[Response]
+        try:
+            result = self.target(
+                message=message.data,
+                attributes=message.attributes,
+            )
+        except Exception as exc:
+            # if this exception type has a handler, call it as a side effect
+            if type(exc) in self._config.error_handlers:
+                self._config.error_handlers[type(exc)](  # type: ignore
+                    message.data,
+                    message.attributes,
+                    exc,
+                )
+
+            raise exc
 
         if result is None:
             return None
