@@ -279,7 +279,7 @@ class AmqpConnection(Connection, BaseModel):
                 return [
                     ExceptionHistoryEntry(**object)
                     for object in json.loads(
-                        properties.headers.get(key, "[]"),
+                        properties.headers.get(key, "[]"),  # type: ignore
                     )
                 ]
             except (json.JSONDecodeError, ValidationError) as e:
@@ -299,7 +299,7 @@ class AmqpConnection(Connection, BaseModel):
     ) -> int:
         if properties.headers and key in properties.headers:
             try:
-                return int(properties.headers[key])
+                return int(properties.headers[key])  # type: ignore
             except (ValueError, TypeError):
                 pass
 

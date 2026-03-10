@@ -4,13 +4,14 @@ module mqkit.endpoints.endpointfactory
 Defines the EndpointFactory class for creating endpoint instances.
 """
 
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING, Optional
 
-from ..messaging import Destination, Exchange, Queue
+from ..messaging import Destination
 from .queueendpoint import QueueEndpoint
 
 if TYPE_CHECKING:
     from .config import QueueEndpointConfig
+    from ..messaging import ForwardTarget
 
 
 class EndpointFactory:
@@ -38,7 +39,7 @@ class EndpointFactory:
 
     @staticmethod
     def convert_forward_target_to_destination(
-        forward_to: Optional[Union[str, Queue, Exchange, Destination]] = None,
+        forward_to: Optional["ForwardTarget"] = None,
     ) -> Optional[Destination]:
         """
         Converts a forward target to a Destination object.

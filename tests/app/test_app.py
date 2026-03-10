@@ -1,14 +1,18 @@
 from threading import Thread
 from typing import Set
 import uuid
+import warnings
 
-from mqkit import App, Queue, create_engine
+from mqkit import App, Attributes, Queue, create_engine
 from mqkit.declarations.queuedeclaration import QueueDeclaration
 from mqkit.engines.rabbitmq import RabbitMqEngine
 from mqkit.errors import FunctionTypeError
+from mqkit.warnings import UnboundQueueWarning
 
+from pydantic import BaseModel
 import pytest
 import requests
+
 
 from ..common import (
     ASSERT_TIMEOUT,
@@ -315,3 +319,86 @@ def test_app_declare_queue(rabbitmq_engine: RabbitMqEngine) -> None:
             auth=(TEST_USERNAME, TEST_PASSWORD),
         )
         assert response.ok
+
+
+def test_app_unboundqueuewarning(rabbitmq_engine: RabbitMqEngine) -> None:
+    app: App = App()
+
+    with warnings.catch_warnings(record=True) as warning_catcher:
+        warnings.simplefilter("always")
+
+        @app.queue("another_test_queue", forward_to="bound_queue")
+        def another_test_queue(message, attributes):
+            return {
+                "response": "Message processed by another_test_queue"
+            }, "another_unbound_queue"
+
+        @app.queue("bound_queue")
+        def bound_queue(message, attributes):
+            return {"response": "Message processed by bound_queue"}
+
+        app._validate_forward_targets()
+        assert len(warning_catcher) == 0
+
+    with pytest.warns(UnboundQueueWarning):
+
+        @app.queue("test_queue", forward_to="unbound_queue")
+        def test_queue(message, attributes):
+            return {"response": "Message processed by test_queue"}, "unbound_queue"
+
+        app._validate_forward_targets()
+
+
+def test_app_error_handler_decode(rabbitmq_engine: RabbitMqEngine) -> None:
+    with ManagedQueue("app_error_handlers_decode") as managed_queue:
+        app: App = App()
+        error_handler_called: bool = False
+
+        def error_handler(message, attributes, error):
+            nonlocal error_handler_called
+            error_handler_called = True
+
+        @app.queue(
+            managed_queue.name,
+            on_decode_error=error_handler,
+        )
+        def test_queue(message, attributes): ...
+
+        app_thread: Thread = Thread(target=app.run, args=(rabbitmq_engine,))
+        app_thread.start()
+        managed_queue.define()
+        managed_queue.publish('{"invalid_json": }')
+
+        wait_to_assert(lambda: error_handler_called, timeout=ASSERT_TIMEOUT)
+
+        app.stop()
+        app_thread.join()
+
+
+def test_app_error_handler_validation(rabbitmq_engine: RabbitMqEngine) -> None:
+    with ManagedQueue("app_error_handler_validation") as managed_queue:
+        app: App = App()
+        validation_error_handler_called: bool = False
+
+        class TestModel(BaseModel):
+            expected_field: str
+
+        def validation_error_handler(message, attributes, error):
+            nonlocal validation_error_handler_called
+            validation_error_handler_called = True
+
+        @app.queue(
+            managed_queue.name,
+            on_validation_error=validation_error_handler,
+        )
+        def test_queue(message: TestModel, attributes: Attributes) -> None: ...
+
+        app_thread: Thread = Thread(target=app.run, args=(rabbitmq_engine,))
+        app_thread.start()
+        managed_queue.define()
+        managed_queue.publish('{"unexpected_field": "value"}')
+
+        wait_to_assert(lambda: validation_error_handler_called, timeout=ASSERT_TIMEOUT)
+
+        app.stop()
+        app_thread.join()

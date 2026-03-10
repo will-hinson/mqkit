@@ -41,6 +41,17 @@ class QueueEndpoint(Endpoint):
     def dead_letter(self: "QueueEndpoint") -> Optional[Destination]:
         return self._config.dead_letter
 
+    @property
+    def forward_target(self: "QueueEndpoint") -> Optional[Destination]:
+        """
+        Get the forward target destination for this endpoint.
+
+        Returns:
+            Optional[Destination]: The forward target destination if configured, otherwise None.
+        """
+
+        return self._config.forward_to
+
     def _forward_result(self: "QueueEndpoint", response: Response) -> Optional[Forward]:
         assert self._config.forward_to is not None
 
@@ -92,10 +103,22 @@ class QueueEndpoint(Endpoint):
                 queue was specified.
         """
 
-        result: Optional[Response] = self.target(
-            message=message.data,
-            attributes=message.attributes,
-        )
+        result: Optional[Response]
+        try:
+            result = self.target(
+                message=message.data,
+                attributes=message.attributes,
+            )
+        except Exception as exc:
+            # if this exception type has a handler, call it as a side effect
+            if type(exc) in self._config.error_handlers:
+                self._config.error_handlers[type(exc)](  # type: ignore
+                    message.data,
+                    message.attributes,
+                    exc,
+                )
+
+            raise exc
 
         if result is None:
             return None

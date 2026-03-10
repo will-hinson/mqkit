@@ -7,7 +7,9 @@ from mqkit.endpoints.config import QueueEndpointConfig
 from mqkit.errors import FunctionSignatureError
 from mqkit.marshal import ReturnTypeSerializer, TypelessSerializer
 from mqkit.marshal.codecs import CodecType
+from mqkit.marshal.fullytypedserializer import FullyTypedSerializer
 from mqkit.messaging import Queue
+from mqkit.messaging.attributes import Attributes
 from mqkit.messaging.retry import NoRetryStrategy
 
 import pytest
@@ -121,4 +123,41 @@ def test_endpoint_type_detection() -> None:
                 )
             }["serializer"],
             ReturnTypeSerializer,
+        )
+
+    def fully_typed_handler_type1(message: TestModel, attributes: Attributes) -> dict:
+        return {}
+
+    def fully_typed_handler_type2(message: TestModel, attributes: Attributes) -> None:
+        return None
+
+    def fully_typed_handler_type3(
+        message: TestModel, attributes: Attributes
+    ) -> TestModel:
+        return TestModel(x=1, y="test")
+
+    for fully_typed_handler in [
+        fully_typed_handler_type1,
+        fully_typed_handler_type2,
+        fully_typed_handler_type3,
+    ]:
+        endpoint = QueueEndpoint(
+            QueueEndpointConfig(
+                queue=Queue(
+                    name="test",
+                ),
+                target=fully_typed_handler,
+                codec_type=CodecType.JSON,
+                retry_strategy=NoRetryStrategy(),
+            )
+        )
+        assert isinstance(
+            {
+                name: cell.cell_contents
+                for name, cell in zip(
+                    endpoint.target.__code__.co_freevars,
+                    endpoint.target.__closure__,  # type: ignore
+                )
+            }["serializer"],
+            FullyTypedSerializer,
         )

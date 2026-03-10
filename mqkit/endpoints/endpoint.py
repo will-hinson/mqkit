@@ -9,10 +9,11 @@ import functools
 import inspect
 from typing import Any, Callable, Dict, NoReturn, Optional, Type, TypeAlias, Union
 
-from mqkit.messaging.attributes import Attributes
+from pydantic import ValidationError
 
-from ..errors import FunctionSignatureError
+from ..errors import FunctionSignatureError, MarshalError
 from ..marshal import (
+    FullyTypedSerializer,
     ReturnTypeSerializer,
     Serializer,
     TypelessSerializer,
@@ -25,7 +26,7 @@ from ..marshal.codecs import (
     RawCodec,
     YamlCodec,
 )
-from ..messaging import Destination, Forward, QueueMessage, Response
+from ..messaging import Attributes, Destination, Forward, QueueMessage, Response
 from ..messaging.retry import RetryStrategy
 
 _codec_type_to_class: Dict[CodecType, Type[Codec]] = {
@@ -38,6 +39,8 @@ _codec_type_to_class: Dict[CodecType, Type[Codec]] = {
 EndpointCallback: TypeAlias = Callable[
     [Any, Attributes], Optional[Union[Response, bytes]]
 ]
+EndpointExceptionHandler: TypeAlias = Callable[[bytes, Attributes, Exception], None]
+EndpointDecodeException: TypeAlias = Union[MarshalError, ValidationError]
 
 
 class Endpoint(metaclass=ABCMeta):
@@ -223,10 +226,16 @@ class Endpoint(metaclass=ABCMeta):
         if "return" in func.__annotations__ and len(func.__annotations__) == 1:
             return self._make_serializer_return_type(function=func, codec=codec)
 
-        raise FunctionSignatureError(
-            "Unable to infer serializer type from function annotations for function "
-            f"{func.__name__}()"
-        )  # pragma: no cover
+        # just try constructing a fully-typed serializer. it will raise an appropriate
+        # FunctionSignatureError if it can't make sense of the signature
+        return self._make_serializer_fully_typed(function=func, codec=codec)
+
+    def _make_serializer_fully_typed(
+        self: "Endpoint",
+        function: Callable,
+        codec: Codec,
+    ) -> Serializer:
+        return FullyTypedSerializer(function=function, codec=codec)
 
     def _make_serializer_return_type(
         self: "Endpoint",

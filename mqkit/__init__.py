@@ -26,6 +26,7 @@ __all__ = [
     "logging",
     "marshal",
     "messaging",
+    "warnings",
     "workers",
 ]
 
@@ -39,6 +40,7 @@ from . import events
 from . import logging
 from . import marshal
 from . import messaging
+from . import warnings
 from . import workers
 
 from .messaging.retry import ImmediateRetryStrategy, NoRetryStrategy, RetryStrategy
@@ -49,6 +51,7 @@ consume = _consume.consume
 del _consume
 
 App = apps.App
+Attributes = messaging.Attributes
 create_engine = engines.create_engine
 Exchange = messaging.Exchange
 NoRetry = errors.NoRetry
