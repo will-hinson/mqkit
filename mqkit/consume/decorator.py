@@ -54,16 +54,6 @@ def _consume_threaded(
         raise worker.error
 
 
-def _infer_engine() -> Engine:
-    # try to infer the engine from an environment variable
-    if "MQKIT_ENGINE_URL" not in os.environ:
-        raise RuntimeError(
-            "No engine provided and MQKIT_ENGINE_URL environment variable not set"
-        )
-
-    return create_engine(os.environ["MQKIT_ENGINE_URL"])
-
-
 def _infer_logger(func: Callable) -> Logger:
     return logging.getLogger(
         os.environ.get(
@@ -110,7 +100,8 @@ def consume(
     """
 
     if engine is None:
-        engine = _infer_engine()
+        # if an engine was not provided, create one based on the environment or defaults
+        engine = create_engine()
 
     codec = CodecType(codec) if codec is not None else CodecType.JSON
 

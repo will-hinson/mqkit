@@ -6,7 +6,7 @@ import pytest
 from unittest.mock import Mock, patch
 
 from mqkit import consume
-from mqkit.consume.decorator import _consume_threaded, _infer_engine, _infer_logger
+from mqkit.consume.decorator import _consume_threaded, _infer_logger
 from mqkit.endpoints.config import QueueEndpointConfig
 from mqkit.marshal.codecs import CodecType
 
@@ -60,23 +60,6 @@ def test_consume_threaded_reraises_worker_error(mocker) -> None:
         )
 
 
-def test_infer_engine_env_not_set() -> None:
-    with patch.dict(os.environ, {}, clear=True):
-        with pytest.raises(RuntimeError, match="MQKIT_ENGINE_URL"):
-            _infer_engine()
-
-
-def test_infer_engine_env_set(mocker) -> None:
-    mock_create_engine = mocker.patch(
-        "mqkit.consume.decorator.create_engine", return_value="engine"
-    )
-    with patch.dict(os.environ, {"MQKIT_ENGINE_URL": "amqp://test"}):
-        result = _infer_engine()
-
-    assert result == "engine"
-    mock_create_engine.assert_called_once_with("amqp://test")
-
-
 def test_infer_logger_default_name():
     def fake_func(): ...
 
@@ -96,7 +79,9 @@ def test_infer_logger_env_name():
     assert logger.name == "my_logger"
 
 
-def test_consume_decorator_async_disallowed() -> None:
+def test_consume_decorator_async_disallowed(mocker) -> None:
+    mocker.patch("mqkit.consume.decorator.create_engine", return_value="engine")
+
     async def async_handler(msg):
         return msg
 
@@ -108,8 +93,8 @@ def test_consume_decorator_blocks_safely(mocker) -> None:
     # patch the blocking pieces BEFORE decorating
     mock_threaded = mocker.patch("mqkit.consume.decorator._consume_threaded")
     mock_exit = mocker.patch("sys.exit")
-    mock_infer_engine = mocker.patch(
-        "mqkit.consume.decorator._infer_engine", return_value="engine"
+    mock_create_engine = mocker.patch(
+        "mqkit.consume.decorator.create_engine", return_value="engine"
     )
     mock_infer_logger = mocker.patch(
         "mqkit.consume.decorator._infer_logger", return_value=Mock()
@@ -126,7 +111,7 @@ def test_consume_decorator_blocks_safely(mocker) -> None:
     # decorated()
 
     # assertions
-    mock_infer_engine.assert_called_once()
+    mock_create_engine.assert_called_once()
     mock_infer_logger.assert_called_once_with(handler)
     mock_threaded.assert_called_once()
 

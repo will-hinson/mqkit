@@ -72,7 +72,9 @@ class RabbitMqEngine(Engine):
             "use_amqps": url.scheme == "amqps",
         }
         if url.path not in (None, ""):
-            ctor_args["vhost"] = url.path
+            # strip the leading slash from the path to get the actual vhost name. we
+            # don't want to do this for the root vhost since it's just "/"
+            ctor_args["vhost"] = url.path[1:] if url.path != "/" else "/"
         if url.port is not None:
             ctor_args["port"] = url.port
         elif url.scheme == "amqps":
