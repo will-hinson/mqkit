@@ -1,6 +1,6 @@
 [project]
 name = "mqkit"
-version = "0.1.0"
+version = "0.1.1"
 description = "Framework for building FastAPI-style RabbitMQ apps"
 authors = [
     {name = "Will Hinson",email = "will@hinson.sh"}
