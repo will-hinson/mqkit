@@ -7,12 +7,15 @@ based on connection URLs.
 
 __all__ = ["create_engine", "Engine", "RabbitMqEngine"]
 
-from typing import Dict, Type
+import os
+from typing import Dict, Optional, Type
 
 from yarl import URL
 
 from .engine import Engine
 from .rabbitmq import RabbitMqEngine
+
+from ..errors import ConfigurationError
 
 
 _scheme_mapping: Dict[str, Type[Engine]] = {
@@ -21,7 +24,7 @@ _scheme_mapping: Dict[str, Type[Engine]] = {
 }
 
 
-def create_engine(url: str) -> Engine:
+def create_engine(url: Optional[str] = None) -> Engine:
     """
     Factory method to create an Engine instance based on the provided URL.
 
@@ -31,6 +34,15 @@ def create_engine(url: str) -> Engine:
     Returns:
         Engine: An instance of the appropriate Engine subclass.
     """
+
+    # try to infer the engine if no URL is provided
+    if url is None:
+        if "MQKIT_ENGINE_URL" not in os.environ:
+            raise ConfigurationError(
+                "No engine URL provided and MQKIT_ENGINE_URL environment variable not set"
+            )
+
+        url = os.environ["MQKIT_ENGINE_URL"]
 
     connect_url: URL = URL(url)
     if connect_url.scheme not in _scheme_mapping:

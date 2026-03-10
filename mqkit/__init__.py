@@ -53,6 +53,7 @@ del _consume
 App = apps.App
 Attributes = messaging.Attributes
 create_engine = engines.create_engine
+Engine = engines.Engine
 Exchange = messaging.Exchange
 NoRetry = errors.NoRetry
 Queue = messaging.Queue
