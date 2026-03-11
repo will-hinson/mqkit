@@ -6,7 +6,7 @@ exception history of a failed message. The ExceptionHistoryEntry includes the ty
 message, traceback, and retry count of the exception.
 """
 
-from typing import List
+from typing import List, Optional
 from pydantic import BaseModel
 
 
@@ -24,3 +24,4 @@ class ExceptionHistoryEntry(BaseModel):
     exception_message: str
     traceback: List[str]
     retry_count: int
+    origin_queue: Optional[str] = None
