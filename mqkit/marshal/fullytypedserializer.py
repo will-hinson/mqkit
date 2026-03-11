@@ -43,9 +43,11 @@ class FullyTypedSerializer(ReturnTypeSerializer):
                 "as its decode method lacks a return type annotation"
             )
 
+        codec_type_origin = get_origin(self._codec.decode.__annotations__["return"])
         self._codec_return_type = (
-            get_origin(self._codec.decode.__annotations__["return"])
-            or self._codec.decode.__annotations__["return"]
+            codec_type_origin
+            if isinstance(codec_type_origin, type)
+            else self._codec.decode.__annotations__["return"]
         )
         self._check_function_signature(function)
 
