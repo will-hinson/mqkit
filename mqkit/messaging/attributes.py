@@ -28,3 +28,4 @@ class Attributes(BaseModel):
     previous_retry_count: int = 0
     is_dead_letter: bool
     exception_history: List[ExceptionHistoryEntry] = Field(default_factory=list)
+    receiving_queue: str

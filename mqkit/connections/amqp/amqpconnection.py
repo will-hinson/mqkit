@@ -453,6 +453,7 @@ class AmqpConnection(Connection, BaseModel):
         return QueueMessage(
             data=message.body,
             attributes=Attributes(
+                receiving_queue=self.queue.name,
                 headers={
                     key: str(value)
                     for key, value in (message.properties.headers or {}).items()
