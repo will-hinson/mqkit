@@ -42,7 +42,7 @@ def _consume_threaded(
         # poll for the worker thread to exit. we have to do this as join() is
         # not interruptible on Windows and we need to give CPython a change
         # to handle a KeyboardInterrupt (SIGINT) gracefully
-        while worker.is_alive():
+        while worker.is_alive() and worker.error is None:
             worker.join(timeout=1)
 
     except KeyboardInterrupt:  # pragma: no cover

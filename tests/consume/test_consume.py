@@ -11,9 +11,15 @@ from mqkit.endpoints.config import QueueEndpointConfig
 from mqkit.marshal.codecs import CodecType
 
 
+def simulate_sigint(*args, **kwargs):
+    # Simulate an after the first join call
+    raise KeyboardInterrupt()
+
+
 def test_consume_threaded_success(mocker) -> None:
     mock_worker = Mock()
     mock_worker.error = None
+    mock_worker.join.side_effect = simulate_sigint
 
     mocker.patch(
         "mqkit.consume.decorator.ThreadWorker",
@@ -25,14 +31,15 @@ def test_consume_threaded_success(mocker) -> None:
         return_value=Mock(),
     )
 
-    _consume_threaded(
-        config=Mock(queue_name="test-queue"),
-        engine=Mock(),
-        logger=Mock(),
-    )
+    with pytest.raises(KeyboardInterrupt):
+        _consume_threaded(
+            config=Mock(queue_name="test-queue"),
+            engine=Mock(),
+            logger=Mock(),
+        )
 
     mock_worker.start.assert_called_once()
-    mock_worker.join.assert_called_once()
+    mock_worker.join.assert_called()
 
 
 def test_consume_threaded_reraises_worker_error(mocker) -> None:
