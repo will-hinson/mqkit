@@ -47,7 +47,7 @@ class RetryStrategy(metaclass=ABCMeta):
                 exception_message=str(context.exception),
                 traceback=traceback.format_exception(context.exception),
                 retry_count=context.message.attributes.retry_count,
-                origin_queue=context.message.attributes.origin_queue,
+                origin_queue=context.message.attributes.receiving_queue,
             )
         )
 

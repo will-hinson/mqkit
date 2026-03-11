@@ -35,6 +35,7 @@ def test_queue_endpoint_no_forward_no_result() -> None:
         QueueMessage(
             data=b'{"key": "value"}',
             attributes=Attributes(
+                receiving_queue="test-queue",
                 headers={},
                 forwarded=False,
                 topic=None,
@@ -68,6 +69,7 @@ def test_queue_endpoint_no_forward_with_result() -> None:
             QueueMessage(
                 data=b'{"key": "value"}',
                 attributes=Attributes(
+                    receiving_queue="test-queue",
                     headers={},
                     forwarded=False,
                     topic=None,
@@ -102,6 +104,7 @@ def test_queue_endpoint_with_forward_queue() -> None:
         QueueMessage(
             data=b'{"key": "value"}',
             attributes=Attributes(
+                receiving_queue="test-queue",
                 headers={},
                 forwarded=False,
                 topic=None,
@@ -138,6 +141,7 @@ def test_queue_endpoint_with_forward_topic() -> None:
         QueueMessage(
             data=b'{"key": "value"}',
             attributes=Attributes(
+                receiving_queue="test-queue",
                 headers={},
                 forwarded=False,
                 topic=None,
@@ -182,6 +186,7 @@ def test_queue_endpoint_with_forward_and_response_topic_error() -> None:
             QueueMessage(
                 data=b'{"key": "value"}',
                 attributes=Attributes(
+                    receiving_queue="test-queue",
                     headers={},
                     forwarded=False,
                     topic=None,
@@ -227,6 +232,7 @@ def test_queue_endpoint_error_handlers() -> None:
             QueueMessage(
                 data=b"bad data!",
                 attributes=Attributes(
+                    receiving_queue="test-queue",
                     headers={},
                     forwarded=False,
                     topic=None,

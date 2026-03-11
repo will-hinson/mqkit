@@ -68,6 +68,7 @@ class QueueEndpoint(Endpoint):
                 message=QueueMessage(
                     data=response.data,
                     attributes=Attributes(
+                        receiving_queue=self._config.queue.name,
                         headers=self.make_forward_headers(
                             response,
                             origin_queue=self._config.queue.name,
