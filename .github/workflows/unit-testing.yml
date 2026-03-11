@@ -47,7 +47,7 @@ jobs:
         RABBITMQ_PASSWORD: ${{ secrets.RABBITMQ_PASSWORD }}
         MQKIT_ENGINE_URL: amqp://${{ secrets.RABBITMQ_USER }}:${{ secrets.RABBITMQ_PASSWORD }}@localhost/
       run: |
-        poetry run coverage run --concurrency=thread -m pytest -s
+        poetry run pytest -s -n auto --cov=mqkit
     - name: Check coverage ratio
       run: |
         poetry run coverage report --fail-under=100 -m --omit='tests/*'
