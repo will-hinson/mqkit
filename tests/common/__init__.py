@@ -78,6 +78,21 @@ class ManagedQueue:
         assert response.ok or response.status_code == 404
         return "messages" in response.json()
 
+    def get_one(self: "ManagedQueue") -> dict:
+        response: Response = requests.post(
+            build_management_url(f"/api/queues/%2F/{self.name}/get"),
+            auth=(TEST_USERNAME, TEST_PASSWORD),
+            json={
+                "count": 1,
+                "ackmode": "ack_requeue_false",
+                "encoding": "auto",
+            },
+        )
+        assert response.ok, "Failed to get message from the queue"
+        messages = response.json()
+        assert len(messages) > 0, "No messages in the queue"
+        return messages[0]
+
     def publish(
         self: "ManagedQueue", message: str, headers: dict | None = None
     ) -> None:

@@ -7,12 +7,9 @@ to fail after exceeding the maximum retries, it can be forwarded to an optional 
 destination for further analysis or handling.
 """
 
-import traceback
 from typing import override
 
 from ...errors import ConfigurationError, MarshalError
-from ..exceptionhistoryentry import ExceptionHistoryEntry
-from ..forward import Forward
 from .retrycontext import RetryContext
 from .retrystrategy import RetryStrategy
 
@@ -61,52 +58,6 @@ class ImmediateRetryStrategy(RetryStrategy):
         # original message to remove it from the queue since we have requeued it
         self._submit_for_retry(context)
         context.connection.acknowledge_failure(context.message)
-
-    def _append_exception_to_history(
-        self: "ImmediateRetryStrategy", context: RetryContext
-    ) -> None:
-        # append an object representing the current exception to the history
-        context.message.attributes.exception_history.append(
-            ExceptionHistoryEntry(
-                exception_type=type(context.exception).__qualname__,
-                exception_module=type(context.exception).__module__,
-                exception_message=str(context.exception),
-                traceback=traceback.format_exception(context.exception),
-                retry_count=context.message.attributes.retry_count,
-            )
-        )
-
-    def _forward_to_dlq(self: "ImmediateRetryStrategy", context: RetryContext) -> None:
-        if context.dead_letter_destination is None:
-            self._logger.warning(
-                "No dead letter destination configured, message will be discarded"
-            )
-        else:
-            self._logger.info(
-                "Forwarding failed message to dead letter destination: %s",
-                context.dead_letter_destination,
-            )
-
-            # set up the message with the appropriate dlq context
-            if context.dead_letter_destination.topic is not None:
-                context.message.attributes.topic = context.dead_letter_destination.topic
-            context.message.attributes.headers["x-mqkit-previous-retry-count"] = str(
-                context.message.attributes.retry_count
-            )
-            context.message.attributes.headers |= {
-                "x-mqkit-forwarded": "true",
-                "x-mqkit-dead-letter": "true",
-                "x-mqkit-origin-queue": context.received_queue,
-            }
-            self._append_exception_to_history(context)
-            context.message.attributes.retry_count = 0
-
-            context.connection.forward_message(
-                Forward(
-                    forward_target=context.dead_letter_destination.resource,
-                    message=context.message,
-                )
-            )
 
     def _handle_failure_bad_message(
         self: "ImmediateRetryStrategy", context: RetryContext
