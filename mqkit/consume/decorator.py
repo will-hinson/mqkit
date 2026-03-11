@@ -38,7 +38,13 @@ def _consume_threaded(
     try:
         worker.start()
         logger.info("Started threaded consumer for queue '%s'", config.queue.name)
-        worker.join()
+
+        # poll for the worker thread to exit. we have to do this as join() is
+        # not interruptible on Windows and we need to give CPython a change
+        # to handle a KeyboardInterrupt (SIGINT) gracefully
+        while worker.is_alive():
+            worker.join(timeout=1)
+
     except KeyboardInterrupt:  # pragma: no cover
         worker.stop("Keyboard interrupt received")
         worker.join()
