@@ -69,4 +69,7 @@ def test_noretrystrategy_dlq_forward(rabbitmq_engine: RabbitMqEngine) -> None:
         wait_to_assert(lambda: retry_count == 1, timeout=ASSERT_TIMEOUT)
         wait_to_assert(lambda: managed_queue.size == 0, timeout=ASSERT_TIMEOUT)
         wait_to_assert(lambda: dlq.size == 1, timeout=ASSERT_TIMEOUT)
+        assert len(dlq.get_one()["properties"]["headers"]) > 0, (
+            "Expected message to have headers added by retry strategy when forwarded to DLQ"
+        )
         app.stop()

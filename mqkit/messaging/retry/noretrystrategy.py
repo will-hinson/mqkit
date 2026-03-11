@@ -8,7 +8,6 @@ message handler.
 
 from typing import override
 
-from ..forward import Forward
 from .retrycontext import RetryContext
 from .retrystrategy import RetryStrategy
 
@@ -28,19 +27,7 @@ class NoRetryStrategy(RetryStrategy):
 
     @override
     def handle_failure(self: "NoRetryStrategy", context: RetryContext) -> None:
-        if context.dead_letter_destination is not None:
-            self._logger.info(
-                "Message failed, forwarding to dead letter destination %s. Will not retry",
-                context.dead_letter_destination,
-            )
-            context.connection.forward_message(
-                Forward(
-                    forward_target=context.dead_letter_destination.resource,
-                    message=context.message,
-                )
-            )
-        else:
-            self._logger.info("Acknowledged failure of message, will not retry")
+        self._forward_to_dlq(context)
 
         # simply acknowledge failure on the existing connection. we never
         # want to retry with this strategy

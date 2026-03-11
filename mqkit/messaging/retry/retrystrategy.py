@@ -9,7 +9,10 @@ RetryStrategy can implement different retry policies
 from abc import ABCMeta, abstractmethod
 from logging import Logger
 import logging
+import traceback
 
+from ..exceptionhistoryentry import ExceptionHistoryEntry
+from ..forward import Forward
 from ...logging import root_logger_name
 from .retrycontext import RetryContext
 
@@ -32,6 +35,52 @@ class RetryStrategy(metaclass=ABCMeta):
             f"{root_logger_name}.{'.'.join(self.__class__.__module__.split('.')[1:-1])}."
             f"{self.__class__.__name__}"
         )
+
+    def _append_exception_to_history(
+        self: "RetryStrategy", context: RetryContext
+    ) -> None:
+        # append an object representing the current exception to the history
+        context.message.attributes.exception_history.append(
+            ExceptionHistoryEntry(
+                exception_type=type(context.exception).__qualname__,
+                exception_module=type(context.exception).__module__,
+                exception_message=str(context.exception),
+                traceback=traceback.format_exception(context.exception),
+                retry_count=context.message.attributes.retry_count,
+            )
+        )
+
+    def _forward_to_dlq(self: "RetryStrategy", context: RetryContext) -> None:
+        if context.dead_letter_destination is None:
+            self._logger.warning(
+                "No dead letter destination configured, message will be discarded"
+            )
+        else:
+            self._logger.info(
+                "Forwarding failed message to dead letter destination: %s",
+                context.dead_letter_destination,
+            )
+
+            # set up the message with the appropriate dlq context
+            if context.dead_letter_destination.topic is not None:
+                context.message.attributes.topic = context.dead_letter_destination.topic
+            context.message.attributes.headers["x-mqkit-previous-retry-count"] = str(
+                context.message.attributes.retry_count
+            )
+            context.message.attributes.headers |= {
+                "x-mqkit-forwarded": "true",
+                "x-mqkit-dead-letter": "true",
+                "x-mqkit-origin-queue": context.received_queue,
+            }
+            self._append_exception_to_history(context)
+            context.message.attributes.retry_count = 0
+
+            context.connection.forward_message(
+                Forward(
+                    forward_target=context.dead_letter_destination.resource,
+                    message=context.message,
+                )
+            )
 
     @abstractmethod
     def handle_failure(
