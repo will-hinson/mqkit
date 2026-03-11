@@ -6,12 +6,12 @@ full type information.
 """
 
 import inspect
-from typing import Any, Callable, Dict, Optional, Type, override
+from typing import Any, Callable, Dict, get_origin, Optional, Type, override
 
 from pydantic import BaseModel
 
 from .codecs.codec import Codec
-from ..errors import FunctionSignatureError
+from ..errors import ConfigurationError, FunctionSignatureError
 from ..messaging import Attributes
 from .returntypeserializer import ReturnTypeSerializer
 
@@ -24,6 +24,7 @@ class FullyTypedSerializer(ReturnTypeSerializer):
     """
 
     _message_type: Optional[Type[BaseModel]] = None
+    _codec_return_type: Type
 
     def __init__(
         self: "FullyTypedSerializer",
@@ -36,6 +37,16 @@ class FullyTypedSerializer(ReturnTypeSerializer):
             codec=codec,
         )
 
+        if "return" not in self._codec.decode.__annotations__:
+            raise ConfigurationError(
+                f"Codec {type(self._codec).__name__} cannot be used with FullyTypedSerializer "
+                "as its decode method lacks a return type annotation"
+            )
+
+        self._codec_return_type = (
+            get_origin(self._codec.decode.__annotations__["return"])
+            or self._codec.decode.__annotations__["return"]
+        )
         self._check_function_signature(function)
 
     @override
@@ -53,11 +64,12 @@ class FullyTypedSerializer(ReturnTypeSerializer):
                 f"expected {self._message_type.__name__} or Dict"
             )
 
-        if isinstance(result, Dict):
+        if isinstance(result, self._codec_return_type):
             return result
 
         raise TypeError(
-            f"Codec returned value of type {type(result).__name__}, expected Dict or model"
+            f"Codec returned value of type {type(result).__name__}, "
+            f"expected {self._codec_return_type.__name__} or model"
         )
 
     @override
@@ -110,13 +122,24 @@ class FullyTypedSerializer(ReturnTypeSerializer):
         function: Callable,
         annotation: Type,
     ) -> None:
-        if issubclass(annotation, Dict):
+        annotation_origin: Type = get_origin(annotation) or annotation
+
+        # check if the message parameter is annotated as the return type of
+        # the codec's decode() method (i.e., Dict for JsonCodec or bytes for RawCodec)
+        #
+        # if so, this is valid but we don't need to decode a model type
+        if issubclass(annotation_origin, self._codec_return_type) and not issubclass(
+            annotation_origin, BaseModel
+        ):
             return
 
-        if not issubclass(annotation, BaseModel):
+        if not issubclass(annotation_origin, BaseModel):
             raise FunctionSignatureError(
                 f"Function {function.__name__}() 'message' parameter type "
-                f"must be a subclass of pydantic.BaseModel"
+                f"must be a subclass of pydantic.BaseModel or correspond to "
+                f"the {self._codec_return_type.__name__} return type annotation of "
+                f"{type(self._codec).__name__}.decode(). Current annotation type is "
+                f"{annotation.__name__}"
             )
 
         self._message_type = annotation
